@@ -1,0 +1,21 @@
+{
+  "duplicate_prompts": [],
+  "semantic_duplicates": [],
+  "family_overlap": [],
+  "evidence_overlap": [],
+  "variant_crossing": [],
+  "passed": true,
+  "checks": {
+    "duplicate_prompts": 0,
+    "semantic_duplicates": 0,
+    "family_overlap": 0,
+    "evidence_overlap": 0,
+    "variant_crossing": 0
+  },
+  "n_rows": 1100,
+  "split_sizes": {
+    "train": 768,
+    "val": 171,
+    "test": 161
+  }
+}

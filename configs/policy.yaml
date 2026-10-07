@@ -1,0 +1,27 @@
+# PHC-X risk policy / intervention thresholds
+# NOTE: default thresholds are NOT assumed optimal; they are optimized on
+# validation data by `phc calibrate --optimize-policy`.
+thresholds:
+  low: 0.25
+  moderate: 0.50
+  high: 0.75
+  critical: 1.00
+
+actions:
+  LOW: GENERATE
+  MODERATE: GENERATE_WITH_EVIDENCE
+  HIGH: RETRIEVE
+  CRITICAL: CLARIFY_OR_ABSTAIN
+
+overrides:
+  latency_budget_ms: 800        # if exceeded -> cheaper action down the chain
+  evidence_available: true
+  user_preference: balanced     # balanced | aggressive | permissive
+  min_risk_for_abstain: 0.75
+
+costs:
+  false_positive: 1.0           # wrongly flagging a safe answer
+  false_negative: 3.0           # missing a hallucination
+  abstention: 2.0               # refusing a answerable question
+  retrieval: 0.4                # latency/compute cost of retrieval
+  clarification: 1.5

@@ -1,0 +1,94 @@
+/* PHC-X floating pre-generation risk panel */
+.phcx-panel {
+  position: absolute;
+  z-index: 2147483646;
+  width: 320px;
+  background: #12161f;
+  color: #dfe6f1;
+  border: 1px solid #2b3548;
+  border-radius: 12px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45);
+  padding: 10px 12px;
+  font: 12px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  pointer-events: none;
+}
+.phcx-panel.phcx-show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.phcx-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.phcx-logo {
+  font-weight: 800;
+  color: #5aa9ff;
+  letter-spacing: 0.4px;
+}
+.phcx-score {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  font-size: 13px;
+}
+.phcx-action {
+  margin-left: auto;
+  border: 1px solid #2b3548;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.phcx-loading {
+  color: #8b97ab;
+  margin-left: auto;
+}
+.phcx-reason {
+  color: #b9c3d4;
+  margin-bottom: 6px;
+}
+.phcx-factors {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  margin-bottom: 4px;
+}
+.phcx-factors > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #8b97ab;
+}
+.phcx-reasons {
+  color: #7d8aa0;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+.phcx-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.phcx-buttons button {
+  background: #1a2130;
+  color: #dfe6f1;
+  border: 1px solid #2b3548;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.phcx-buttons button:hover {
+  border-color: #5aa9ff;
+}
+.phcx-buttons .phcx-primary {
+  background: #5aa9ff;
+  border-color: #5aa9ff;
+  color: #06121f;
+  font-weight: 700;
+}

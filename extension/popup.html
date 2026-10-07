@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>PHC-X</title>
+  <style>
+    body {
+      width: 300px; margin: 0; padding: 14px;
+      background: #0e1117; color: #dfe6f1;
+      font: 13px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    h1 { font-size: 15px; margin: 0 0 4px; color: #5aa9ff; }
+    .sub { color: #8b97ab; font-size: 11px; margin-bottom: 12px; }
+    label { display: block; margin: 10px 0 4px; color: #8b97ab; font-size: 12px; }
+    input[type=text] {
+      width: 100%; background: #161b24; color: #dfe6f1;
+      border: 1px solid #263044; border-radius: 6px; padding: 6px 8px;
+      font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    }
+    .row { display: flex; align-items: center; gap: 8px; margin: 8px 0; color: #dfe6f1; }
+    .row input { accent-color: #5aa9ff; }
+    button {
+      width: 100%; margin-top: 12px; padding: 7px;
+      background: #5aa9ff; color: #06121f; font-weight: 700;
+      border: none; border-radius: 8px; cursor: pointer;
+    }
+    button.secondary { background: #1a2130; color: #dfe6f1; border: 1px solid #263044; font-weight: 400; }
+    #status { margin-top: 10px; font-size: 12px; color: #8b97ab; }
+    #status.ok { color: #37d399; }
+    #status.err { color: #ff5c72; }
+    .riskline { display:flex; gap:6px; align-items:center; margin-top:6px; font-size:12px; }
+    .riskline b { font-family: ui-monospace, Menlo, monospace; font-size:14px; }
+  </style>
+</head>
+<body>
+  <h1>PHC-X</h1>
+  <div class="sub">Pre-generation hallucination guard</div>
+
+  <label>local API base</label>
+  <input type="text" id="api-base" spellcheck="false" />
+
+  <div class="row"><input type="checkbox" id="enabled" /><label for="enabled" style="margin:0">guard enabled</label></div>
+  <div class="row"><input type="checkbox" id="block" /><label for="block" style="margin:0">block send on CLARIFY / ABSTAIN</label></div>
+  <div class="row"><input type="checkbox" id="badge" /><label for="badge" style="margin:0">show toolbar risk badge</label></div>
+
+  <button id="save">Save settings</button>
+  <button id="health" class="secondary">Check service</button>
+  <button id="dash" class="secondary">Open dashboard</button>
+
+  <div id="status">–</div>
+  <div id="model" class="sub"></div>
+  <div id="last" class="riskline"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

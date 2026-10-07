@@ -1,0 +1,50 @@
+# PHC-X training configuration
+experiment: phcx_train_baseline
+seed: 42
+seeds: [42, 123, 2024]
+
+dataset:
+  name: phc-conversation
+  path: data/processed/phc_conversation.jsonl
+  split_strategy: family        # split by conversation family (no variant leakage)
+  split_ratios: [0.7, 0.15, 0.15]   # train / val / test
+  ab_split_by: source_question
+
+features:
+  mode: black_box               # black_box | white_box
+  history_turns: 10
+  use_prompt: true
+  use_history: true
+  use_provenance: true
+  use_contradiction: true
+  use_evidence: true
+  use_temporal: true
+  use_presupposition: true
+  use_ambiguity: true
+  use_whitebox: false           # only for white_box mode
+
+model:
+  name: rf                      # lr | rf | xgb | lgbm | mlp | neural
+  hyperparameters:
+    n_estimators: 300
+    max_depth: 8
+    min_samples_leaf: 5
+
+calibration:
+  method: isotonic               # none | platt | isotonic | temperature
+  split: val                     # calibration must use validation split only
+
+policy:
+  optimize_thresholds: true
+  cost_fp: 1.0
+  cost_fn: 3.0
+  abstention_cost: 2.0
+
+evaluation:
+  metrics: [auroc, auprc, f1, precision, recall, ece, brier, nll]
+  bootstrap_rounds: 1000
+  confidence: 0.95
+
+output:
+  checkpoint_dir: checkpoints
+  results_dir: results/raw

@@ -1,0 +1,32 @@
+# PHC-Conversation dataset generation configuration
+name: phc-conversation
+version: "1.0"
+seed: 42
+# Our research dataset (NOT an established external benchmark).
+synthetic: true
+natural_sources: []   # add licensed/public conversational sources here only when permitted
+
+categories:
+  - supported_context
+  - unsupported_context
+  - contradictory_context
+  - model_memory_contamination
+  - entity_ambiguity
+  - temporal_inconsistency
+  - unsupported_presupposition
+  - referential_ambiguity
+  - evidence_conflict
+  - long_context_degradation
+  - short_benign
+
+samples_per_category: 60
+turns_min: 3
+turns_max: 12
+split:
+  strategy: family          # never split conversation variants of same source question
+  ratios: [0.7, 0.15, 0.15]
+
+base_datasets:              # optional seeds; generator works offline with built-in facts
+  - HaluEval
+  - TruthfulQA
+  - FEVER

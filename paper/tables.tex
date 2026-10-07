@@ -1,0 +1,88 @@
+\begin{table}[t]
+\centering
+\caption{Test-split performance.}
+\label{tab:main}
+\small
+\begin{tabular}{lrrrrrrr}
+\toprule
+Method & AUROC & AUPRC & F1 & Prec. & Rec. & ECE & Brier \\
+\midrule
+PHC-X (RF, calibrated) & 0.984 & 0.995 & 0.961 & 0.961 & 0.961 & 0.026 & 0.042 \\
+PHC-X (RF, uncalibrated) & 0.988 & 0.993 & 0.923 & 0.857 & 1.000 & 0.104 & 0.058 \\
+Logistic regression (calibrated) & 0.966 & 0.983 & 0.903 & 0.823 & 1.000 & 0.051 & 0.082 \\
+Heuristic (no training) & 0.717 & 0.852 & 0.698 & 0.664 & 0.735 & 0.280 & 0.246 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{table}[t]
+\centering
+\caption{Per-category test results.}
+\label{tab:category}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Category & $n$ & AUROC & F1 & ECE \\
+\midrule
+contradictory\_context & 12 & 0.950 & 0.947 & 0.083 \\
+entity\_ambiguity & 20 & 1.000 & 1.000 & 0.082 \\
+evidence\_conflict & 12 & 0.500 & 1.000 & 0.000 \\
+long\_context\_degradation & 17 & 1.000 & 1.000 & 0.027 \\
+model\_memory\_contamination & 12 & 1.000 & 1.000 & 0.057 \\
+referential\_ambiguity & 20 & 0.951 & 0.897 & 0.072 \\
+short\_benign & 11 & 0.500 & 0.000 & 0.000 \\
+supported\_context & 18 & 1.000 & 1.000 & 0.000 \\
+temporal\_inconsistency & 10 & 1.000 & 1.000 & 0.007 \\
+unsupported\_context & 18 & 0.785 & 0.833 & 0.192 \\
+unsupported\_presupposition & 11 & 1.000 & 1.000 & 0.000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{table}[t]
+\centering
+\caption{Feature ablations.}
+\label{tab:ablation}
+\small
+\begin{tabular}{clrr}
+\toprule
+ID & Feature group & AUROC & $\Delta$ \\
+\midrule
+F & Full black-box feature set & 0.984 \\
+G & Full + white-box model signals & 0.981 & -0.003 \\
+E & History + provenance + evidence & 0.978 & -0.006 \\
+D & Prompt + history + provenance + contradiction & 0.895 & -0.088 \\
+C & Prompt + history + provenance & 0.889 & -0.095 \\
+A & Prompt only & 0.846 & -0.138 \\
+B & Prompt + history & 0.846 & -0.138 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{table}[t]
+\centering
+\caption{Action-level safety gates.}
+\label{tab:gates}
+\small
+\begin{tabular}{lrr}
+\toprule
+Gate & Value & Status \\
+\midrule
+Coverage & 0.509 & PASS \\
+Positives caught & 0.961 & PASS \\
+Safety margin & 0.613 & -- \\
+Blocked share & 0.491 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{table}[t]
+\centering
+\caption{External generalization without retraining.}
+\label{tab:external}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Dataset & $n$ & AUROC & 95\% CI & AUPRC \\
+\midrule
+DiaHalu & 1103 & 0.491 & 0.481--0.499 & 0.472 \\
+HaluEval dialogue & 20000 & 0.500 & 0.494--0.507 & 0.500 \\
+\bottomrule
+\end{tabular}
+\end{table}

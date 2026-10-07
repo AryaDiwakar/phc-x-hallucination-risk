@@ -1,0 +1,35 @@
+{
+  "n_rows": 1100,
+  "n_families": 238,
+  "seed": 42,
+  "ratios": [
+    0.7,
+    0.15,
+    0.15
+  ],
+  "split_sizes": {
+    "train": 768,
+    "val": 171,
+    "test": 161
+  },
+  "label_rate": {
+    "train": 0.5599,
+    "val": 0.5556,
+    "test": 0.6335
+  },
+  "label_source": "union(label_gold, label_verified)",
+  "gold_verified_agreement": 0.7518,
+  "leakage_passed": true,
+  "leakage_checks": {
+    "duplicate_prompts": 0,
+    "semantic_duplicates": 0,
+    "family_overlap": 0,
+    "evidence_overlap": 0,
+    "variant_crossing": 0
+  },
+  "paths": {
+    "train": "data/phc_conversation/train.jsonl",
+    "val": "data/phc_conversation/val.jsonl",
+    "test": "data/phc_conversation/test.jsonl"
+  }
+}
