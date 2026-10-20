@@ -181,6 +181,7 @@ def run_report(
                 "label_rate": leak_summary.get("label_rate"),
                 "gold_verified_agreement": leak_summary.get("gold_verified_agreement"),
             }
+            block["dataset"]["n_test"] = (leak_summary.get("split_sizes") or {}).get("test")
         if leak_splits:
             block["leakage_probe"] = _leakage_probe(leak_splits)
         if leak_train and isinstance(leak_train.get("test"), dict):

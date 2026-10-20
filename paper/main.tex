@@ -30,26 +30,31 @@ prompt's hidden states, PHC-X scores the upcoming turn from
 presuppositions), the provenance of claims stored in conversation memory,
 and the coverage of retrieved evidence. A calibrated risk model maps these
 54 features to a probability, and a cost-sensitive policy with monotone
-thresholds converts it into an action. On \textbf{PHC-Conversation}, a
-family-split, leakage-checked benchmark of \nrows{} prompts in \nfamilies{}
-families (test $n=$ \ntest), PHC-X reaches AUROC \auroc{} [\auroclo,
-\aurochi], AUPRC \auprc, F1 \fone, and ECE \ece, versus AUROC \hauroc{} for a
-transparent heuristic baseline, with multi-seed AUROC
-\msmean{}$\pm$\msstd{} (seeds \msses). Action-level safety gates
-\gatestatus{}: generated turns carry hallucination rate \riskgenerated{}
-against a base rate of \riskoverall, while \caught{} of all positives are
-caught and coverage is \coverage. Because the benchmark is synthetic, we
-measure the obvious artifact rather than assume it away: a lookup table
-over prompt templates reaches AUROC \lookupauroc{} without reading the
-conversation, and on a leak-controlled variant of the benchmark---one shared
-prompt pool, so the question cannot identify the risk type---the
-prompt-only ablation collapses to \lcprompt{} (chance) while the full model
-holds \lcauc{}. The signal is in the conversation, not the wording. On
-external data the framework transfers its context-coverage capability
-(AUROC \cfauroc{} on a HaluEval counterfactual) but not its discrimination
-of already-generated responses. Ablations attribute most of the gain to
- history, provenance, and evidence features (prompt-only AUROC \promptauroc).
-The system ships end-to-end: CLI, REST API, browser extension, and dashboard.
+thresholds converts it into an action. Because a synthetic benchmark can
+reward recognising its own generator, we measure that artifact rather than
+assume it away. On \textbf{PHC-Conversation}---a family-split,
+leakage-checked benchmark of \nrows{} prompts in \nfamilies{} families (test
+$n=$ \ntest)---each category's prompt template identifies the risk category,
+and a lookup table over prompt templates reaches AUROC \lookupauroc{} without
+reading the conversation. We therefore also report a \emph{leak-controlled}
+variant, with one shared prompt pool so that the question cannot identify
+the risk type: there the prompt-only ablation collapses to \lcprompt{}
+(chance) while PHC-X holds AUROC \lcauc{} (AUPRC \lcauprc, F1 \lcfone; test
+$n=$ \lcntest). The signal is in the conversation, not the wording. On the
+standard benchmark the same model reaches AUROC \auroc{} [\auroclo, \aurochi]
+against \hauroc{} for a transparent heuristic baseline, with multi-seed
+AUROC \msmean{}$\pm$\msstd{} (seeds \msses) and ECE \ece; action-level
+safety gates report \gatestatus{} (generated turns carry hallucination rate
+\riskgenerated{} against a base rate of \riskoverall, \caught{} of all
+positives caught, coverage \coverage), and they report \lccoverageok{} on the
+leak-controlled variant as well (coverage \lccoverage, \lccaugt{} caught,
+generated-turn rate \lcriskgenerated{} against \lcriskoverall). On external
+data the framework transfers its context-coverage capability (AUROC
+\cfauroc{} on a HaluEval counterfactual) but not its discrimination of
+already-generated responses. Scored against a label source it never saw it
+retains AUROC \crossgold{}, and it detects risk types it never saw at mean
+AUROC \locomean. The system ships end-to-end: CLI, REST API, browser
+extension, and dashboard.
 \end{abstract}
 
 \section{Introduction}
@@ -85,11 +90,16 @@ black-box (no model internals required).
 are calibrated on a validation split (ECE \ece{} vs.\ \uece{} uncalibrated)
 and mapped to five actions by a monotone threshold policy with a
 budget-aware blocking gate.
-\item \textbf{PHC-Conversation benchmark.} \nrows{} prompts in \nfamilies{}
- near-duplicate families (splits \ntrain/\nval/\ntest), \ncategories{} categories
- (ten risk categories plus short benign first-turn prompts),
-union gold+verified labels with post-hoc agreement \agreement{}, and
-automated leakage checks (\texttt{leakage\_passed}=\leakage).
+\item \textbf{PHC-Conversation benchmark, and a leak-controlled variant.}
+\nrows{} prompts in \nfamilies{} near-duplicate families (splits
+\ntrain/\nval/\ntest), \ncategories{} categories (ten risk categories plus
+short benign first-turn prompts), union gold+verified labels with post-hoc
+agreement \agreement{}, and automated leakage checks
+(\texttt{leakage\_passed}=\leakage). Because a synthetic benchmark can
+reward recognising its own generator, we also measure that artifact
+(Section~\ref{sec:leakcontrol}) and publish a variant in which the prompt
+cannot identify the risk type, on which the prompt-only ablation falls to
+chance while the model holds \lcauc{}.
 \item \textbf{End-to-end system.} \texttt{phc} CLI, REST API with decision
 logging, MV3 browser extension with a blocking gate, and a dashboard; all
 offline, deterministic, and seeded.
@@ -251,7 +261,7 @@ number was an artifact. The full model moves only from \auroc{} to
 history and provenance reach \lchistory{}, contradiction adds
 \lccontradiction{}, and evidence coverage is the single largest
 contributor at \lcevidence{} (Table~\ref{tab:leakcontrol}). The action-level
-gates still report \lcgatestatus{} with coverage \lccoverage.
+gates still report \lccoverageok{} with coverage \lccoverage.
 
 \subsection{Generalisation stress tests}
 Two further tests probe what the model has actually learned.
@@ -282,11 +292,15 @@ seen it.
 Right: reliability before/after calibration.}\label{fig:roc}
 \end{figure}
 
-\textbf{Headline.} PHC-X attains AUROC \auroc{} [\auroclo, \aurochi],
-AUPRC \auprc{} [\auprclo, \auprchi], F1 \fone{} (precision \precis, recall
-\recla), ECE \ece, Brier \brier, against AUROC \hauroc{} /
-AUPRC \hauprc{} / F1 \hfone{} for the heuristic baseline, and AUROC
-\lrauroc{} for a logistic-regression probe on the same features.
+\textbf{Headline.} The number we stand behind is the leak-controlled one: with
+a prompt that carries no category information, PHC-X reaches AUROC \lcauc{}
+[\lcauprc AUPRC, \lcfone{} F1] on $n=$ \lcntest, while the prompt-only
+ablation is at \lcprompt{}---chance. On the standard benchmark, where the
+prompt does identify the category, the same model reaches AUROC \auroc{}
+[\auroclo, \aurochi], AUPRC \auprc{} [\auprclo, \auprchi], F1 \fone{}
+(precision \precis, recall \recla), ECE \ece, Brier \brier, against AUROC
+\hauroc{} / AUPRC \hauprc{} / F1 \hfone{} for the heuristic baseline, and
+AUROC \lrauroc{} for a logistic-regression probe on the same features.
 Calibration cuts ECE from \uece{} to \ece{} (Table~\ref{tab:main}).
 Multi-seed runs give \msmean{}$\pm$\msstd.
 

@@ -131,3 +131,14 @@ generator. It removes one specific artifact and makes the context-based
 claim measurable; it does not substitute for a benchmark with independent
 labels. That is what the human-validation study is for, and it is still
 pending.
+
+## How the paper uses this
+
+The paper and the README **lead with the leak-controlled number** (AUROC
+0.963, n = 107) and report the standard benchmark (0.986, n = 161) beside
+it, with the template-lookup probe in both columns. The reasoning: the
+standard benchmark's 0.986 is a real measurement, but a reader cannot tell
+from it how much of it came from the conversation. The leak-controlled
+number answers that question directly, so it is the one the headline should
+carry — and quoting 0.986 alone would invite exactly the objection this
+document exists to pre-empt.

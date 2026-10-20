@@ -17,16 +17,33 @@ N Sai Baba (23BDS0019).
 
 ---
 
-## Headline results (test split, n = 161; run `phc report` to regenerate)
+## Headline results
 
-| Metric | PHC-X (RF) | Heuristic baseline |
-|---|---|---|
-| AUROC | **0.986** [0.972, 0.996] (1000× bootstrap CI) | 0.727 |
-| AUPRC | **0.992** | 0.852 |
-| F1 @ tuned threshold | **0.951** (P 0.942 / R 0.961) | 0.716 |
-| ECE (10-bin) | **0.048** (0.107 uncalibrated) | 0.252 |
-| Multi-seed AUROC | 0.986 ± 0.000 (seeds 42 / 123 / 2024) | — |
-| *Template lookup (leakage probe)* | *0.808* | *—* |
+**The number we stand behind is the leak-controlled one.** PHC-Conversation
+is synthetic, and in the standard benchmark the wording of the question
+identifies the risk category, so a lookup table over prompt templates
+reaches AUROC 0.808 without reading the conversation. On the leak-controlled
+variant — one shared prompt pool, so the question cannot identify the risk
+type — the prompt-only ablation collapses to chance while the model holds:
+
+| Metric | PHC-X, leak-controlled (n = 107) | PHC-X, standard (n = 161) | Heuristic (standard) |
+|---|---|---|---|
+| AUROC | **0.963** | 0.986 [0.972, 0.996] (1000× bootstrap CI) | 0.727 |
+| AUPRC | **0.982** | 0.992 | 0.852 |
+| F1 @ tuned threshold | **0.893** (P 0.816 / R 0.986) | 0.951 (P 0.942 / R 0.961) | 0.716 |
+| ECE (10-bin) | 0.058 | 0.048 (0.107 uncalibrated) | 0.252 |
+| Multi-seed AUROC | 0.964 ± 0.001 (seeds 42 / 123 / 2024) | 0.986 ± 0.000 | — |
+| *Template lookup (leakage probe)* | *0.635* | *0.808* | *—* |
+| *Prompt-only ablation* | *0.485 (chance)* | *0.853* | *—* |
+| Action-level gates | **PASS** (coverage 52.3 %, 98.6 % caught, generated-turn rate 0.000 vs base 0.673) | **PASS** (coverage 51.5 %, 96.1 % caught, rate 0.041 vs base 0.634) | — |
+
+The prompt-only figure on the standard benchmark is a memorised lookup, not
+a measure of what the prompt carries; the leak-controlled column is the
+honest one, and it is the one the paper leads with. See
+`docs/leakage_control.md`.
+
+Significance vs. heuristic (standard benchmark): McNemar p < 0.001; DeLong
+p ≈ 0.45 (AUROC CIs overlap — we report both).
 
 **The leakage probe.** Each category draws its prompts from its own
 template pool, so the wording of the question identifies the risk category.
@@ -74,12 +91,13 @@ was already coming from the conversation.
   1.000 (`entity_ambiguity`) down to 0.377 (`unsupported_context`, the one
   whose signal is specific to having seen it).
 
-Ablation AUROC: `A_prompt_only` 0.853 → `B` 0.853 → `C` 0.887 → `D` 0.901 →
-`E_history_provenance_evidence` 0.984 → `F_full` 0.986.
-Benchmark gates **PASS**: coverage 51.5 %, positives caught 96.1 %,
-safety margin 0.593 (blocking = CLARIFY/CLARIFY_OR_ABSTAIN/ABSTAIN).
-Significance vs. heuristic: McNemar p < 0.001; DeLong p ≈ 0.45 (AUROC CIs
-overlap — we report both).
+Ablation AUROC (standard benchmark): `A_prompt_only` 0.853 → `B` 0.853 →
+`C` 0.887 → `D` 0.901 → `E_history_provenance_evidence` 0.984 →
+`F_full` 0.986. On the leak-controlled variant the same ladder reads
+0.485 → 0.798 → 0.800 → 0.808 → 0.965 → 0.963, and the ordering is the one
+the method section claims: history and provenance get you to 0.800,
+contradiction adds a little, and evidence coverage is the single largest
+contributor.
 
 The cost-sensitive threshold search is stable across seeds: multi-seed F1 is
 0.943 ± 0.009 and the operating point varies by less than 0.07. The coverage

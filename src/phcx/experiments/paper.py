@@ -146,6 +146,7 @@ def _leak_control_macros(stats: Dict[str, Any]) -> Dict[str, Any]:
     gates = bench.get("gates") or {}
     return {
         "lcnrows": data.get("n_rows", "--"),
+        "lcntest": (lc.get("dataset") or {}).get("n_test", "--"),
         "lctemplates": (lc.get("leakage_probe") or {}).get("n_distinct_templates", "--"),
         "lcleakauc": _f((lc.get("leakage_probe") or {}).get("template_lookup_auroc")),
         "lcleakfrac": _f((lc.get("leakage_probe") or {}).get("frac_templates_uniquely_categorised")),
@@ -159,7 +160,11 @@ def _leak_control_macros(stats: Dict[str, Any]) -> Dict[str, Any]:
         "lcevidence": _f(ablation.get("E_history_provenance_evidence")),
         "lcfull": _f(ablation.get("F_full")),
         "lccoverage": _f(gates.get("coverage")),
-        "lcgatestatus": _esc(bench.get("gate_status", "--")),
+        "lccoverageok": _esc(bench.get("gate_status", "--")),
+        "lccaugt": _f(gates.get("positives_caught")),
+        "lcsafetymargin": _f(gates.get("safety_margin")),
+        "lcriskgenerated": _f(gates.get("risk_generated")),
+        "lcriskoverall": _f(gates.get("risk_overall")),
     }
 
 

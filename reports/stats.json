@@ -5,7 +5,7 @@
   "label_rate": 0.63354,
   "threshold": 0.41,
   "n_boot": 1000,
-  "generated_at": "2026-10-21T00:57:01",
+  "generated_at": "2026-10-21T01:11:39",
   "dataset": {
     "n_rows": 1100,
     "n_families": 238,
@@ -354,7 +354,7 @@
       {
         "bin_lower": 0.1,
         "bin_upper": 0.2,
-        "mean_predicted": 0.1499787821941543,
+        "mean_predicted": 0.14997878219415428,
         "empirical_rate": 0.0,
         "count": 4
       },
@@ -368,14 +368,14 @@
       {
         "bin_lower": 0.30000000000000004,
         "bin_upper": 0.4,
-        "mean_predicted": 0.3101909296907791,
+        "mean_predicted": 0.31019092969077905,
         "empirical_rate": 0.0,
         "count": 1
       },
       {
         "bin_lower": 0.4,
         "bin_upper": 0.5,
-        "mean_predicted": 0.45872361177295634,
+        "mean_predicted": 0.4587236117729563,
         "empirical_rate": 0.25,
         "count": 12
       },
@@ -389,7 +389,7 @@
       {
         "bin_lower": 0.6000000000000001,
         "bin_upper": 0.7000000000000001,
-        "mean_predicted": 0.6509658936952091,
+        "mean_predicted": 0.6509658936952092,
         "empirical_rate": 0.7692307692307693,
         "count": 13
       },
@@ -426,28 +426,28 @@
       {
         "bin_lower": 0.2,
         "bin_upper": 0.30000000000000004,
-        "mean_predicted": 0.2631784914677646,
+        "mean_predicted": 0.2631784914677645,
         "empirical_rate": 0.5,
         "count": 4
       },
       {
         "bin_lower": 0.30000000000000004,
         "bin_upper": 0.4,
-        "mean_predicted": 0.32671391641168807,
+        "mean_predicted": 0.3267139164116883,
         "empirical_rate": 0.25,
         "count": 4
       },
       {
         "bin_lower": 0.4,
         "bin_upper": 0.5,
-        "mean_predicted": 0.4438710231138484,
+        "mean_predicted": 0.4438710231138486,
         "empirical_rate": 0.5555555555555556,
         "count": 9
       },
       {
         "bin_lower": 0.5,
         "bin_upper": 0.6000000000000001,
-        "mean_predicted": 0.5811548626014731,
+        "mean_predicted": 0.5811548626014732,
         "empirical_rate": 1.0,
         "count": 3
       },
@@ -626,7 +626,8 @@
         "val": 0.549,
         "test": 0.6729
       },
-      "gold_verified_agreement": 0.6457
+      "gold_verified_agreement": 0.6457,
+      "n_test": 107
     },
     "leakage_probe": {
       "template_lookup_auroc": 0.63452,
@@ -2150,9 +2151,9 @@
   },
   "latency_ms": {
     "n": 25,
-    "median": 20.96,
-    "p95": 23.47,
-    "mean": 21.5,
+    "median": 19.58,
+    "p95": 21.15,
+    "mean": 19.49,
     "note": "warm PHCPipeline.analyze incl. SHAP, machine-local"
   },
   "figures": [

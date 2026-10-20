@@ -18,6 +18,53 @@ def stats():
     return json.loads(path.read_text())
 
 
+def test_paper_references_only_defined_macros(stats):
+    """Every ``\\macro`` used in main.tex must be defined in macros.tex.
+
+    A renamed macro leaves a dangling reference that only shows up when
+    LaTeX compiles, which is far too late to notice.
+    """
+    main = ROOT / "paper" / "main.tex"
+    macros = ROOT / "paper" / "macros.tex"
+    if not main.exists() or not macros.exists():
+        pytest.skip("paper sources not generated yet (run `phc paper`)")
+
+    defined = set(re.findall(r"\\newcommand\{\\([A-Za-z]+)\}", macros.read_text()))
+    body = main.read_text()
+    # drop the definitions and includes, then collect the control words used
+    body = re.sub(r"\\newcommand\{[^}]*\}\{[^}]*\}", "", body)
+    body = re.sub(r"\\(input|include|usepackage|documentclass|label|ref|cite|begin|end)\b", "", body)
+    used = set(re.findall(r"\\([A-Za-z]+)", body))
+
+    # control words that come from the document class or standard packages
+    known = {
+        "textbf", "textit", "emph", "texttt", "textsc", "textbf", "small",
+        "centering", "caption", "label", "ref", "toprule", "midrule",
+        "bottomrule", "hline", "left", "right", "le", "le", "leq", "geq",
+        "times", "pm", "in", "frac", "approx", "pm", "pm", "cdots", "ldots",
+        "dots", "rightarrow", "to", "and", "or", "not", "item", "section",
+        "subsection", "text", "mathrm", "mathbf", "mathbb", "mathcal",
+        "newcommand", "renewcommand", "newcommand", "documentclass", "usepackage",
+        "geometry", "amsmath", "amssymb", "mathptmx", "caption", "hyperref",
+        "booktabs", "newcommand", "def", "frac", "quad", "qquad", "hskip",
+        "vspace", "hspace", "newline", "linebreak", "centering", "centering",
+        "bf", "it", "rm", "sf", "tt", "sc", "sl", "em", "LaTeX", "TeX",
+        "alpha", "beta", "gamma", "tau", "sigma", "mu", "lambda", "phi",
+        "epsilon", "delta", "theta", "rho", "eta", "zeta", "kappa", "omega",
+        "infty", "partial", "nabla", "sum", "prod", "int", "langle",
+        "rangle", "lfloor", "rfloor", "lceil", "rceil", "setminus",
+        "subseteq", "supseteq", "in", "notin", "cup", "cap", "oplus",
+        "otimes", "sim", "simeq", "approx", "equiv", "propto", "mid",
+        "max", "min", "arg", "exp", "log", "sin", "cos", "tan", "lim",
+        "sup", "inf", "det", "dim", "ker", "deg", "gcd", "bmod", "pmod",
+        # document structure and packages used by the paper
+        "author", "title", "date", "maketitle", "bibitem", "includegraphics",
+        "linewidth", "geq", "leq", "cdot", "ss", "ge", "hspace", "vspace",
+    }
+    undefined = sorted(used - defined - known)
+    assert not undefined, f"main.tex uses undefined macros: {undefined}"
+
+
 def test_macros_are_valid_latex_command_names(stats):
     tex = render_macros(stats)
     # Match *every* definition, not just the well-formed ones: TeX reads a
