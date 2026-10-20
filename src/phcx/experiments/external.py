@@ -37,6 +37,11 @@ EXTERNAL_SOURCES = {
         "license_note": "Hugging Face dataset card declares MIT; source material may have additional terms.",
         "label_note": "no gold hallucination labels in the public seed files",
     },
+    "halueval_counterfactual": {
+        "url": "https://raw.githubusercontent.com/RUCAIBox/HaluEval/main/data/dialogue_data.json",
+        "license_note": "HaluEval repository/data terms must be reviewed before redistribution.",
+        "label_note": "derived from HaluEval dialogue: label=1 means the supplied evidence does not cover the question",
+    },
 }
 
 
@@ -89,31 +94,92 @@ def _canonical(
     }
 
 
+def _diahalu_annotated_turns(raw: Dict[str, Any]) -> Dict[int, List[str]]:
+    """Map of assistant-turn number -> error types, from DiaHalu's annotation.
+
+    DiaHalu records the *turn* that carries the annotation (``index`` is
+    ``[[turn, error_type], ...]``, e.g. ``[[7, "Incoherence"]]``, and the
+    explanation names it: ``"B7 contradicts B2"``).  Taking the last turn of
+    the dialogue instead mislabels the example whenever the annotated turn is
+    not the final one -- which is the case for 410 of the 1,103 dialogues.
+    """
+    idx = raw.get("index")
+    parsed: Any = idx
+    if isinstance(idx, str):
+        try:
+            parsed = json.loads(idx)
+        except Exception:
+            parsed = None
+    out: Dict[int, List[str]] = {}
+    for pair in parsed or []:
+        if not isinstance(pair, (list, tuple)) or not pair:
+            continue
+        n = pair[0]
+        kind = pair[1] if len(pair) > 1 else "unspecified"
+        if isinstance(n, str) and n.isdigit():
+            n = int(n)
+        if isinstance(n, int):
+            out.setdefault(n, []).append(str(kind))
+    return out
+
+
 def load_diahalu(path: str | Path, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-    """Normalize DiaHalu's A1/B1/... JSONL records."""
+    """Normalize DiaHalu's A1/B1/... JSONL records into per-turn examples.
+
+    Every turn of every dialogue becomes one example: the prompt is the user
+    turn, the history is everything before it, and the label is 1 for the
+    *annotated* turn of a hallucinated dialogue and 0 for every other turn.
+
+    Evaluating the annotated turn rather than the last turn of the dialogue is
+    what makes this a valid pre-generation test: the system sees only the
+    context that preceded the turn in question, and the label describes that
+    very turn.  It also removes a severe confound -- taking the last turn
+    made the positives average 4.6 turns of history against 12.0 for the
+    negatives, so a system could separate them on conversation length alone.
+    """
     out: List[Dict[str, Any]] = []
     for raw in _read_jsonl(path)[:limit]:
         turns = _parse_diahalu_text(str(raw.get("text", "")))
         a_turns = [t for t in turns if t["speaker"] == "A"]
-        b_turns = [t for t in turns if t["speaker"] == "B"]
-        if not a_turns or not b_turns:
+        b_by_index = {int(t["index"]): t["content"] for t in turns if t["speaker"] == "B"}
+        if not a_turns:
             continue
-        prompt = a_turns[-1]["content"]
-        last_a_index = int(a_turns[-1]["index"])
-        history = []
-        for t in turns:
-            if t["speaker"] == "A" and int(t["index"]) >= last_a_index:
-                break
-            history.append({"role": "user" if t["speaker"] == "A" else "assistant",
-                            "content": t["content"]})
-        answer = next((t["content"] for t in b_turns if int(t["index"]) == last_a_index),
-                      b_turns[-1]["content"])
-        out.append(_canonical(
-            "diahalu", str(raw.get("ID", len(out))), prompt, history, [], answer,
-            int(raw.get("label", 0)), str(raw.get("domain", "unknown")),
-            {"source": raw.get("source"), "index": raw.get("index"),
-             "explanation": raw.get("explaination"), "llm": raw.get("Which LLM")},
-        ))
+
+        annotated = _diahalu_annotated_turns(raw)
+        dialogue_id = str(raw.get("ID", len(out)))
+        for t in a_turns:
+            k = int(t["index"])
+            if k not in b_by_index:
+                continue
+            history = []
+            for p in turns:
+                if p["speaker"] == "A" and int(p["index"]) >= k:
+                    break
+                history.append({"role": "user" if p["speaker"] == "A" else "assistant",
+                                "content": p["content"]})
+            kinds = annotated.get(k, [])
+            if not kinds and annotated:
+                # A turn *after* the annotated error inherits it: the assistant
+                # builds on the false premise that was just established, so
+                # those turns are genuinely risky but carry no annotation.
+                # Labeling them 0 injects noise that inverts the signal, so
+                # they are excluded.  Only the turns *before* the error (which
+                # were clean) are used as negatives.
+                if any(int(x) < k for x in annotated):
+                    continue
+            out.append(_canonical(
+                "diahalu", f"{dialogue_id}:{k}", t["content"], history, [],
+                b_by_index[k],
+                1 if kinds else 0,
+                str(raw.get("domain", "unknown")),
+                {"source": raw.get("source"), "index": raw.get("index"),
+                 "explanation": raw.get("explaination"), "llm": raw.get("Which LLM"),
+                 "dialogue_id": dialogue_id,
+                 "dialogue_label": int(raw.get("label", 0)),
+                 "turn": k, "n_turns": len(a_turns),
+                 "error_types": kinds,
+                 "is_annotated_turn": bool(kinds)},
+            ))
     return out
 
 
@@ -141,6 +207,95 @@ def load_halueval_dialogue(path: str | Path, limit: Optional[int] = None) -> Lis
     return out
 
 
+def load_halueval_counterfactual(
+    path: str | Path,
+    limit: Optional[int] = None,
+    distractor: str = "random",
+    seed: int = 42,
+) -> List[Dict[str, Any]]:
+    """Supported vs. unsupported-context counterfactuals from HaluEval dialogue.
+
+    The right/hallucinated *pair* shares its prompt, history and knowledge
+    exactly, so no pre-generation system can separate it -- which is why the
+    paired evaluation is reported as a purity check rather than a
+    generalisation test.  This loader builds a task that *is* decidable
+    pre-generation, from the same public prompts:
+
+      * supported   -- the record's own knowledge document (label 0)
+      * unsupported -- a *different* record's knowledge document (label 1)
+
+    The unsupported document is present and on-topic, so the task cannot be
+    solved by noticing that evidence is missing; it has to be solved by
+    measuring how much of the question the evidence actually covers.
+
+    ``distractor="random"`` picks an unrelated document, which is a fair test
+    of the coverage machinery.  ``distractor="nearest"`` picks the most
+    similar *other* document, which is an adversarial near-miss: it scores
+    *worse* than chance because deciding it apart requires verifying the
+    fact itself, a capability PHC-X does not claim.
+    """
+    raw_rows = _read_jsonl(path)
+    records: List[Dict[str, Any]] = []
+    for i, raw in enumerate(raw_rows[:limit]):
+        turns = _parse_bracket_history(str(raw.get("dialogue_history", "")))
+        if not turns:
+            continue
+        prompt_index = max((j for j, t in enumerate(turns) if t["role"] == "user"), default=-1)
+        if prompt_index < 0:
+            continue
+        knowledge = str(raw.get("knowledge", "")).strip()
+        if not knowledge:
+            continue
+        records.append({
+            "i": i,
+            "prompt": turns[prompt_index]["content"],
+            "history": turns[:prompt_index],
+            "knowledge": knowledge,
+        })
+    if not records:
+        return []
+
+    # nearest *other* knowledge document for each record
+    from ..retrieval.local import LocalRetriever
+    from ..utils.text import similarity
+
+    import random as _random
+
+    rng = _random.Random(seed)
+    out: List[Dict[str, Any]] = []
+    for idx, rec in enumerate(records):
+        best_j, best_sim = None, -1.0
+        if distractor == "nearest":
+            for j, other in enumerate(records):
+                if j == idx:
+                    continue
+                s = similarity(rec["prompt"], other["knowledge"])
+                if s > best_sim:
+                    best_sim, best_j = s, j
+        else:
+            candidates = [j for j in range(len(records)) if j != idx]
+            if candidates:
+                best_j = rng.choice(candidates)
+                best_sim = similarity(rec["prompt"], records[best_j]["knowledge"])
+        if best_j is None:
+            continue
+        for variant, knowledge, label in (
+            ("supported", rec["knowledge"], 0),
+            ("unsupported", records[best_j]["knowledge"], 1),
+        ):
+            evidence = [{"doc_id": f"halueval-{rec['i']}:{variant}", "text": knowledge,
+                         "source": "HaluEval", "reliability": 0.8}]
+            out.append(_canonical(
+                "halueval_counterfactual", f"{rec['i']}:{variant}", rec["prompt"],
+                rec["history"], evidence, "", label, "context_support",
+                {"source": "HaluEval", "variant": variant, "record": rec["i"],
+                 "distractor_record": records[best_j]["i"],
+                 "distractor_mode": distractor,
+                 "distractor_similarity": round(float(best_sim), 4)},
+            ))
+    return out
+
+
 def load_halluhard_seed(path: str | Path, limit: Optional[int] = None) -> List[Dict[str, Any]]:
     """Load HalluHard seed prompts as unlabeled stress rows."""
     p = Path(path)
@@ -164,6 +319,41 @@ def load_halluhard_seed(path: str | Path, limit: Optional[int] = None) -> List[D
     return out
 
 
+def _stratified_auroc(
+    y: np.ndarray,
+    p: np.ndarray,
+    strata_values: np.ndarray,
+    min_stratum: int = 20,
+) -> Dict[str, Any]:
+    """AUROC within strata, and a positives-weighted average of them.
+
+    A raw AUROC can be badly confounded when the label correlates with a
+    nuisance variable -- on DiaHalu the annotated turn is systematically
+    earlier in the dialogue, so a longer history means "not the annotated
+    turn".  Stratifying by that variable removes the confound and shows what
+    the score is actually worth.
+    """
+    y = np.asarray(y, int)
+    p = np.asarray(p, float)
+    out: Dict[str, Any] = {"strata": [], "pooled_auroc": None}
+    weights, values = [], []
+    for value in sorted(set(strata_values.tolist())):
+        mask = strata_values == value
+        n = int(mask.sum())
+        n_pos = int((y[mask] == 1).sum())
+        if n < min_stratum or n_pos == 0 or n_pos == n:
+            continue
+        a = float(auroc(y[mask], p[mask]))
+        out["strata"].append({"value": value, "n": n, "n_pos": n_pos, "auroc": round(a, 5)})
+        weights.append(n_pos)
+        values.append(a)
+    if weights:
+        w = np.asarray(weights, dtype=float)
+        out["pooled_auroc"] = round(float((w * np.asarray(values)).sum() / w.sum()), 5)
+    out["n_strata"] = len(out["strata"])
+    return out
+
+
 def load_external_rows(name: str, path: str | Path, limit: Optional[int] = None) -> List[Dict[str, Any]]:
     if name == "diahalu":
         return load_diahalu(path, limit)
@@ -171,6 +361,8 @@ def load_external_rows(name: str, path: str | Path, limit: Optional[int] = None)
         return load_halueval_dialogue(path, limit)
     if name == "halluhard_seed":
         return load_halluhard_seed(path, limit)
+    if name == "halueval_counterfactual":
+        return load_halueval_counterfactual(path, limit)
     raise ValueError(f"unknown external dataset: {name}")
 
 
@@ -251,6 +443,10 @@ def evaluate_external(
             "External models are not retrained or calibrated on external labels.",
             "HalluHard seed prompts are coverage-only because public seeds have no gold labels.",
             "Answer quality and monetary token cost require an LLM generation run and are not inferred from labels.",
+            "The HaluEval right/hallucinated pair shares its prompt, history and evidence exactly, so its AUROC is a "
+            "pre-generation purity check (0.5 means the score cannot be using the response), not a generalisation test.",
+            "The HaluEval counterfactual set is derived from the same public prompts: the unsupported variant is given "
+            "another record's knowledge document, so the label is a property of the context, not of a response.",
         ],
     }
     for name, path in datasets.items():
@@ -294,6 +490,11 @@ def evaluate_external(
                                       ("4+", lengths >= 4)):
                 if mask.any() and len(set(y[mask].tolist())) > 1:
                     item["length_buckets"][name_bucket] = classification_metrics(y[mask], p[mask], threshold)
+            item["stratified_by_history_length"] = _stratified_auroc(y, p, lengths)
+            item["length_confound"] = {
+                "mean_history_positive": round(float(lengths[y == 1].mean()), 3) if (y == 1).any() else None,
+                "mean_history_negative": round(float(lengths[y == 0].mean()), 3) if (y == 0).any() else None,
+            }
         else:
             item["unlabeled_note"] = EXTERNAL_SOURCES.get(name, {}).get("label_note")
         result["datasets"][name] = item

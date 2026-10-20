@@ -20,10 +20,14 @@ def stats():
 
 def test_macros_are_valid_latex_command_names(stats):
     tex = render_macros(stats)
+    # Match *every* definition, not just the well-formed ones: TeX reads a
+    # control word as letters only, so a name containing a digit or an
+    # underscore is silently split and redefines the part before it.
+    all_names = re.findall(r"\\newcommand\{\\([^}]*)\}", tex)
+    assert all_names, "no macros rendered"
+    bad = [n for n in all_names if not re.fullmatch(r"[A-Za-z]+", n)]
+    assert not bad, f"TeX control words must be letters only, got: {bad}"
     names = re.findall(r"\\newcommand\{\\([A-Za-z]+)\}", tex)
-    assert names, "no macros rendered"
-    # TeX control words are letters only — digits silently split the name
-    assert not re.search(r"\\newcommand\{\\[^}]*[0-9]", tex)
     for required in ("auroc", "msmean", "lathigh", "gatestatus", "pdelong"):
         assert required in names
 

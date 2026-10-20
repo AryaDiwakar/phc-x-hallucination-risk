@@ -89,14 +89,16 @@ on val only), `stats` (paired significance between two checkpoints).
 ## Tests
 
 ```bash
-python3 -m pytest tests -q        # 93 tests, ~25 s
+python3 -m pytest tests -q        # 111 tests, ~40 s
 ```
 
 Covers utils, memory, the five consistency engines, retrieval/features, risk
-+ policy, dataset generation/leakage, end-to-end pipeline, API endpoints, and
-the browser extension manifest/sources.
++ policy, dataset generation/leakage, end-to-end pipeline, API endpoints, the
+browser extension manifest/sources, the **CLI** (every subcommand, against a
+tiny dataset), the **human-validation packet** (blinding + stratification),
+and one regression test per defect fixed in the correctness sweep.
 
-## External Validation
+## External Evaluation
 
 The synthetic benchmark is supplementary, not the primary generalization
 claim. Public snapshots of DiaHalu and HaluEval dialogue are evaluated with:
@@ -109,12 +111,33 @@ phc external-eval \
   --bootstrap 500
 ```
 
-Current zero-retraining results are intentionally visible: DiaHalu AUROC
-0.491 (1,103 rows), HaluEval paired-response AUROC 0.500 (20,000 rows), and
-HalluHard coverage-only (250 unlabeled prompts). The HaluEval pairing shares
-the same pre-generation inputs for correct and hallucinated responses, so it
-cannot be treated as a valid next-turn propensity benchmark. See
-`docs/external_evaluation.md` and `docs/human_validation_protocol.md`.
+Current zero-retraining results are intentionally visible:
+
+| Construction | Rows | PHC-X AUROC | 95% CI |
+|---|---:|---:|---:|
+| DiaHalu, turn-aligned | 5,923 turns | 0.429 | 0.403–0.456 |
+| DiaHalu, stratified by history length | 10 strata | **0.507** | — |
+| HaluEval right/hallucinated pair (purity check) | 20,000 | 0.500 | 0.493–0.508 |
+| HaluEval counterfactual | 20,000 | **0.709** | 0.702–0.716 |
+| HalluHard seeds | 250 | coverage only | N/A |
+
+Three things are now separated cleanly:
+
+- **DiaHalu is turn-aligned.** DiaHalu annotates *which* turn carries the
+  error; the previous loader took the last turn, so for 410 of 1,103
+  dialogues the label described a different turn than the prompt. Turns after
+  an annotated error are excluded because they inherit the false premise.
+- **The raw DiaHalu number is confounded** by conversation length, so the
+  stratified figure (0.507) is the honest one: the system carries no
+  DiaHalu signal.
+- **The HaluEval pair is a purity check, not a generalization test.** Its
+  AUROC is exactly 0.500, which *demonstrates* that the score cannot be
+  using the response — the system is genuinely pre-generation. The
+  counterfactual construction uses the same public prompts with only the
+  context changed, and reaches 0.709: the context-coverage capability does
+  transfer even though hallucination discrimination does not.
+
+See `docs/external_evaluation.md` and `docs/human_validation_protocol.md`.
 
 Optional local pilot baselines use Ollama and are explicitly labeled lexical
 approximations, not official SelfCheckGPT or semantic-entropy reproductions.

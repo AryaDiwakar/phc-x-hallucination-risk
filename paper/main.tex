@@ -254,21 +254,50 @@ Errors concentrate in \texttt{unsupported\_context} and
 \texttt{temporal\_inconsistency}, the categories with the most
 lexically-diverse phrasings.
 
-\section{External Generalization and Validation Status}
+\section{External Evaluation and Validation Status}
 We evaluated the synthetic-trained checkpoint without retraining or
-recalibration on two public datasets. On all \dian{} DiaHalu records, AUROC
-was \diaauroc{}; on 20{,}000 paired HaluEval dialogue responses, AUROC was
-\haluauroc{}. The HaluEval pair shares the same prompt, history, and evidence
-for its correct and hallucinated responses, so a strictly pre-generation
-system cannot distinguish the pair by construction; this is a label-alignment
-stress test, not evidence that the model should predict an already-generated
-answer. HalluHard seed questions were used for unlabeled coverage only.
-These results show that PHC-Conversation performance does not establish
-cross-dataset generalization. The local LLM pilot uses explicitly labeled
-lexical approximations of SelfCheckGPT and semantic entropy on 20 DiaHalu
-rows per model; the wide intervals are exploratory, not publishable baseline
-claims. CoVe and RARR are post-generation verification/revision methods and
-are therefore reported as non-comparable to the pre-generation classifier.
+recalibration on three public constructions.
+
+\textbf{DiaHalu, turn-aligned.} DiaHalu annotates \emph{which} turn of a
+dialogue carries the error, so we evaluate that turn: the prompt is the user
+turn that elicited it, the history is everything before it, and the label
+describes that turn. Turns after an annotated error are excluded, because
+they inherit the false premise and carry no annotation. Over \dian{} turn
+examples the raw AUROC is \diaauroc{}; that number is confounded, because
+the annotated turn is systematically earlier in the dialogue than the
+negatives, and conversation length is itself a risk signal. Stratifying by
+history length gives \diastr{}: once the confound is removed the system
+carries no DiaHalu signal. We report this rather than the raw figure.
+
+\textbf{HaluEval, as a purity check.} The right/hallucinated pair shares its
+prompt, history and evidence exactly, so no pre-generation system can
+separate it. Our AUROC is \haluauroc{} on 20{,}000 paired rows with a tight
+confidence interval, which is the point: it demonstrates that the score
+cannot be using the response, i.e.\ that the system is genuinely
+pre-generation. It is not a generalization test.
+
+\textbf{HaluEval, counterfactual.} To obtain a task that \emph{is} decidable
+pre-generation we use the same public prompts and change only the context:
+the supported variant is given the record's own knowledge document (label 0)
+and the unsupported variant another record's (label 1). Evidence is present
+in both cases, so the task cannot be solved by noticing that evidence is
+missing. Over \cfan{} examples the system reaches AUROC \cfauroc{}
+[\cfaurocmin, \cfaurocmax], well above chance, and the transparent
+heuristic baseline is slightly better. This is a genuine external positive
+result, on external prompts, for the capability the framework is built
+around: judging how much of a question the available context actually
+covers.
+
+Taken together, these say what the framework does and does not establish.
+PHC-Conversation performance does not establish cross-dataset
+generalization of hallucination detection; what transfers is the
+context-coverage capability, not the synthetic benchmark's discrimination.
+HalluHard seed questions were used for unlabeled coverage only. The local
+LLM pilot uses explicitly labeled lexical approximations of SelfCheckGPT and
+semantic entropy on 20 DiaHalu rows per model; the wide intervals are
+exploratory, not publishable baseline claims. CoVe and RARR are
+post-generation verification/revision methods and are therefore reported as
+non-comparable to the pre-generation classifier.
 \section{Deployment}
 \textbf{CLI.} Eleven \texttt{phc} subcommands cover dataset generation,
 training, evaluation, calibration, benchmarking, ablations, significance

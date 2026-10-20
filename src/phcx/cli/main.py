@@ -267,6 +267,10 @@ def cmd_external_eval(args: argparse.Namespace) -> int:
     datasets = {
         "diahalu": args.diahalu,
         "halueval_dialogue": args.halueval,
+        # derived from the same public HaluEval prompts, but with a label
+        # that is decidable pre-generation (does the context cover the
+        # question?) rather than a property of an already-written response
+        "halueval_counterfactual": args.halueval,
     }
     if args.halluhard:
         datasets["halluhard_seed"] = args.halluhard

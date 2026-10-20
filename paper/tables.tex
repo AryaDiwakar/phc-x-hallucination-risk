@@ -74,15 +74,16 @@ Blocked share & 0.484 & -- \\
 \end{table}
 \begin{table}[t]
 \centering
-\caption{External generalization without retraining.}
+\caption{External evaluation without retraining or recalibration.}
 \label{tab:external}
 \small
 \begin{tabular}{lrrrr}
 \toprule
 Dataset & $n$ & AUROC & 95\% CI & AUPRC \\
 \midrule
-DiaHalu & 1103 & 0.497 & 0.461--0.528 & 0.439 \\
-HaluEval dialogue & 20000 & 0.500 & 0.493--0.508 & 0.500 \\
+DiaHalu (turn-aligned) & 5923 & 0.429 & 0.403--0.456 & 0.071 \\
+HaluEval pair (purity check) & 20000 & 0.500 & 0.493--0.508 & 0.500 \\
+HaluEval counterfactual & 20000 & 0.709 & 0.702--0.716 & 0.659 \\
 \bottomrule
 \end{tabular}
 \end{table}

@@ -118,8 +118,13 @@ def render_macros(stats: Dict[str, Any]) -> str:
         "evidenceauroc": _f(ablation.get("E_history_provenance_evidence")),
         "dian": external.get("diahalu", {}).get("n_rows", "--"),
         "diaauroc": _f(dia.get("auroc")),
+        "diastr": _f((external.get("diahalu", {}).get("stratified_by_history_length") or {}).get("pooled_auroc")),
         "halun": external.get("halueval_dialogue", {}).get("n_rows", "--"),
         "haluauroc": _f(halu.get("auroc")),
+        "cfan": external.get("halueval_counterfactual", {}).get("n_rows", "--"),
+        "cfauroc": _f((external.get("halueval_counterfactual", {}).get("model", {}) or {}).get("metrics", {}).get("auroc")),
+        "cfaurocmin": _f(((external.get("halueval_counterfactual", {}).get("model", {}) or {}).get("auroc_ci", {}) or {}).get("lo")),
+        "cfaurocmax": _f(((external.get("halueval_counterfactual", {}).get("model", {}) or {}).get("auroc_ci", {}) or {}).get("hi")),
     }
     return "".join(_macro(name, value) for name, value in values.items())
 
@@ -181,7 +186,9 @@ def render_tables(stats: Dict[str, Any]) -> str:
                    "\n".join(gate_rows) + "\n\\bottomrule\n\\end{tabular}\n\\end{table}\n")
     ext = (stats.get("external_eval") or {}).get("datasets", {})
     ext_rows = []
-    for name, label in (("diahalu", "DiaHalu"), ("halueval_dialogue", "HaluEval dialogue")):
+    for name, label in (("diahalu", "DiaHalu (turn-aligned)"),
+                        ("halueval_dialogue", "HaluEval pair (purity check)"),
+                        ("halueval_counterfactual", "HaluEval counterfactual")):
         item = ext.get(name, {})
         metric = item.get("model", {}).get("metrics", {})
         ci = item.get("model", {}).get("auroc_ci", {})
@@ -190,7 +197,7 @@ def render_tables(stats: Dict[str, Any]) -> str:
                             f"{_f(ci.get('lo'))}--{_f(ci.get('hi'))} & {_f(metric.get('auprc'))} " + r"\\")
     if ext_rows:
         out.append("\\begin{table}[t]\n\\centering\n"
-                   "\\caption{External generalization without retraining.}\n\\label{tab:external}\n"
+                   "\\caption{External evaluation without retraining or recalibration.}\n\\label{tab:external}\n"
                    "\\small\n\\begin{tabular}{lrrrr}\n\\toprule\nDataset & $n$ & AUROC & 95\\% CI & AUPRC \\\\n\\midrule\n" +
                    "\n".join(ext_rows) + "\n\\bottomrule\n\\end{tabular}\n\\end{table}\n")
     # A few compact table headers use the readable ``\\n`` marker above;

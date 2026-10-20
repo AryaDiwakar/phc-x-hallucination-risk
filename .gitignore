@@ -30,3 +30,8 @@ data/synthetic/*
 results/raw/*
 !results/raw/.gitkeep
 *.log
+
+# The unblinded key for the human-validation packet.  It holds the gold
+# labels and the model scores, and must never reach an annotator; it is
+# regenerated deterministically by scripts/prepare_human_validation.py.
+data/annotations/human_validation_key.jsonl
