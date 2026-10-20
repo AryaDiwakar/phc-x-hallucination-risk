@@ -1,3 +1,5 @@
+import math
+
 from phcx.utils.io import load_json, read_jsonl, save_json, write_jsonl
 from phcx.utils.seeded import seeded_rng
 from phcx.utils.text import (
@@ -25,7 +27,8 @@ def test_similarity_properties():
 
 
 def test_entropy_and_jaccard():
-    assert abs(entropy([0.5, 0.5]) - 1.0) < 1e-9
+    # entropy is in nats (natural log), matching the model-logit entropy
+    assert abs(entropy([0.5, 0.5]) - math.log(2.0)) < 1e-9
     assert abs(entropy([1.0])) < 1e-9
     assert jaccard(["a", "b"], ["a", "b"]) == 1.0
     assert jaccard(["a"], ["b"]) == 0.0

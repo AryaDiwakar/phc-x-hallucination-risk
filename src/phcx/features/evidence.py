@@ -9,6 +9,7 @@ Answers: does the available context actually support what the prompt asks?
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence
 
 from ..memory import ConversationMemory, ProvenanceType, VerificationStatus
@@ -48,6 +49,31 @@ class EvidenceResult:
 
 _NEG = ("not", "never", "no", "false", "incorrect", "disputed", "refuted", "denied")
 
+# A passage is considered stale once it predates the current year by more than
+# two years.  The window follows the clock so the rule cannot silently rot.
+_STALE_AFTER_YEARS = 2
+
+
+def _timestamp_year(value: Any) -> Optional[int]:
+    """Best-effort calendar year for a passage timestamp (None if unknown)."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        n = float(value)
+        if n > 1e8:  # epoch seconds
+            try:
+                return datetime.fromtimestamp(n, tz=timezone.utc).year
+            except (OverflowError, OSError, ValueError):
+                return None
+        return int(n) if 1 <= n <= 9999 else None
+    s = str(value).strip()
+    if len(s) >= 4 and s[:4].isdigit():
+        return int(s[:4])
+    return None
+
+
 
 class EvidenceEngine:
     def __init__(self, coverage_threshold: float = 0.35):
@@ -79,15 +105,18 @@ class EvidenceEngine:
         res.source_reliability = (
             max([p.reliability for p, _ in rel], default=0.0) if rel else 0.0
         )
+        _now_year = datetime.now(timezone.utc).year
         res.stale = any(
-            p.timestamp and str(p.timestamp)[:4].isdigit() and int(str(p.timestamp)[:4]) <= 2023
+            (y := _timestamp_year(p.timestamp)) is not None
+            and y <= _now_year - _STALE_AFTER_YEARS
             for p, _ in rel
         )
         res.passages = [p.to_dict() | {"similarity": round(s, 3)} for p, s in rel[:5]]
 
         # ---- memory evidence ---------------------------------------------
         mem_rel = memory.relevant_claims(prompt, top_k=6, min_sim=0.1) if prompt else []
-        mem_support = [(c, s) for c, s in mem_rel if c.trust >= 0.5]
+        # Memory counts as support only when it is not model-generated: a claim
+        # the model asserted earlier is never evidence for its own next turn.
         mem_model_only = bool(mem_rel) and all(c.is_model_claim for c, _ in mem_rel)
         res.model_only = mem_model_only and not supporting
 

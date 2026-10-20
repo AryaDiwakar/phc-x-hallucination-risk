@@ -163,15 +163,16 @@ class PHCPipeline:
 
         # 1) conversation capture -> provenance-aware memory
         mem = ConversationMemory.from_history(list(conversation_history or []), conversation_id=conversation_id)
-        if len(mem.turns) > self.history_turns and self.history_turns > 0:
-            # keep the most recent N turns for feature computation but retain
-            # full memory for provenance/contamination queries.
-            pass
+        # The history feature block analyses a recent-turn window; the full
+        # conversation stays visible to the consistency engines (cross-turn
+        # contradiction / drift is exactly what they are meant to find) and to
+        # the size statistics.  ``history_turns <= 0`` disables the window.
+        mem_window = mem.recent(self.history_turns)
 
         # 2) contamination (uses FULL memory, never a truncated view)
         contam = mem.contamination(prompt)
 
-        # 3) consistency engines
+        # 3) consistency engines (always over the full conversation)
         contradiction = self.contradiction_engine.analyze(mem, prompt)
         entity = self.entity_engine.track(mem, prompt)
         temporal = self.temporal_engine.analyze(
@@ -198,6 +199,7 @@ class PHCPipeline:
         ctx = FeatureContext(
             prompt=prompt,
             memory=mem,
+            window=mem_window,
             contamination_score=contam.score,
             contamination=contam,
             contradiction=contradiction,
@@ -228,9 +230,14 @@ class PHCPipeline:
         explanation.risk = risk
 
         # 9) policy decision
+        # The latency budget is enforced against the time already spent on
+        # this analysis: if we are already over budget, the policy downgrades
+        # to a cheaper action instead of blocking the user.
+        spent_ms = (time.perf_counter() - t0) * 1000.0
         dec = self.policy.decide(
             risk,
             evidence_available=ev.available,
+            latency_ms=spent_ms,
             prefer_clarify=prefer_clarify or ambiguity.should_clarify,
             conversation_id=conversation_id,
         )

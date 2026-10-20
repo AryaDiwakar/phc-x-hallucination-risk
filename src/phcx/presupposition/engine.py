@@ -29,6 +29,16 @@ _TRIGGERS: List[Tuple[str, str, str]] = [
     # factive verbs: presuppose the complement is true
     (r"\b(?:know|realize|discover|notice|regret|acknowledge|understand|confirm)\s+(?:that\s+)?(.{5,120})",
      "factive", "that {0}"),
+    # question-form factives: "isn't it true that X", "is it that X", ...
+    # These presuppose the complement even though they are phrased as
+    # questions, and are the canonical false-presupposition form.
+    (r"\b(?:is|was|are|were)(?:n['’]t|\s+not)\s+it\s+(?:true\s+)?(?:that\s+)?(.{5,120})",
+     "factive", "that {0}"),
+    (r"\b(?:is|was|are|were)\s+it\s+(?:true\s+)?(?:that\s+)?(.{5,120})",
+     "factive", "that {0}"),
+    # "don't you think that X" also presupposes the complement
+    (r"\bdon['’]t\s+you\s+(?:think|believe|agree|reckon)\s+(?:that\s+)?(.{5,120})",
+     "factive", "that {0}"),
     # iterative: presupposes it happened before
     (r"\b(?:again|still|continue[sd]?|resume[sd]?|another|repeat(?:ed)?)\b",
      "iterative", "event occurred previously"),

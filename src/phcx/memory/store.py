@@ -9,6 +9,7 @@ Design rules
 """
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -51,6 +52,24 @@ class ContaminationResult:
             "reasons": self.reasons,
             "explanations": self.explanations,
         }
+
+
+_NUM_TOKEN_RE = re.compile(r"^\d[\d,]*\.?\d*%?$")
+
+
+def _significant_numbers(text: str) -> set:
+    """Numeric tokens in ``text`` that carry enough specificity to be a fact."""
+    out = set()
+    for t in tokenize(text or ""):
+        if not _NUM_TOKEN_RE.match(t):
+            continue
+        try:
+            v = float(t.rstrip("%").replace(",", ""))
+        except ValueError:
+            continue
+        if v >= 10:
+            out.add(t)
+    return out
 
 
 class ConversationMemory:
@@ -138,6 +157,19 @@ class ConversationMemory:
     def recent_turns(self, n: int) -> List[Turn]:
         return self.turns[-n:] if n > 0 else list(self.turns)
 
+    def recent(self, n: int) -> "ConversationMemory":
+        """A read-only view over the most recent ``n`` turns.
+
+        Claims are shared with the parent memory (they are not re-extracted),
+        so the view is cheap and provenance annotations stay identical.  The
+        view carries no edges: it is used for feature computation only.
+        """
+        if n <= 0 or n >= len(self.turns):
+            return self
+        view = ConversationMemory(conversation_id=self.conversation_id)
+        view.turns = list(self.turns[-n:])
+        return view
+
     # ---------------------------------------------------------- contamination
     def contamination(self, prompt: str, min_sim: float = 0.22) -> ContaminationResult:
         """MODEL_MEMORY_CONTAMINATION_SCORE (spec section 5).
@@ -197,12 +229,15 @@ class ConversationMemory:
                         weight=1.0,
                     )
                 )
-        # derived-from: claim in later turn reusing earlier numeric facts
+        # derived-from: a later claim that reuses an earlier *numeric fact*.
+        # The rule used to compare every token (stopwords included), so any two
+        # sentences sharing two common words produced an edge.
         for c in turn.claims:
-            nums = set(tokenize(c.text))
+            nums = _significant_numbers(c.text)
+            if not nums:
+                continue
             for p in prior:
-                shared = nums & set(tokenize(p.text))
-                if len(shared) >= 2:
+                if nums & _significant_numbers(p.text):
                     self.edges.append(
                         MemoryEdge(src=c.claim_id, dst=p.claim_id, edge_type=EdgeType.DERIVED_FROM, weight=1.0)
                     )

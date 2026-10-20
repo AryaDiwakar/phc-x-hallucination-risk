@@ -20,8 +20,8 @@ on PHC-Conversation; no external labels are used for fitting or calibration.
 
 | Dataset | Rows | Status | PHC-X AUROC | 95% CI |
 |---|---:|---|---:|---:|
-| DiaHalu | 1,103 | scored | 0.491 | 0.482–0.499 |
-| HaluEval dialogue | 20,000 paired responses | scored | 0.500 | 0.494–0.507 |
+| DiaHalu | 1,103 | scored | 0.492 | 0.481–0.501 |
+| HaluEval dialogue | 20,000 paired responses | scored | 0.500 | 0.493–0.507 |
 | HalluHard seeds | 250 | coverage only | N/A | N/A |
 
 These are intentionally reported as negative/generalization results. DiaHalu

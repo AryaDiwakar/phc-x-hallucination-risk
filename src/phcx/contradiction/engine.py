@@ -71,6 +71,10 @@ class ContradictionResult:
     reasons: List[str] = field(default_factory=list)
     history_conflict_score: float = 0.0
     prompt_conflict_score: float = 0.0
+    #: how many claim pairs were actually scored, and whether the evaluation
+    #: budget ran out (a silent recall cliff on very long conversations)
+    pairs_evaluated: int = 0
+    budget_exhausted: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -79,6 +83,8 @@ class ContradictionResult:
             "prompt_conflict_score": round(self.prompt_conflict_score, 4),
             "pairs": [p.to_dict() for p in self.pairs[:8]],
             "reasons": self.reasons[:8],
+            "pairs_evaluated": self.pairs_evaluated,
+            "budget_exhausted": self.budget_exhausted,
         }
 
 
@@ -220,9 +226,15 @@ class ContradictionEngine:
         pairs: List[ContradictionPair] = []
         n = len(claims)
         budget = self.max_pairs
+        evaluated = 0
+        exhausted = False
         for i in range(n):
+            if budget <= 0:
+                exhausted = True
+                break
             for j in range(i + 1, n):
                 if budget <= 0:
+                    exhausted = True
                     break
                 a, b = claims[i], claims[j]
                 if a.turn_id == b.turn_id and a.speaker == b.speaker:
@@ -230,10 +242,18 @@ class ContradictionEngine:
                 if not (set(content_tokens(a.text)) & set(content_tokens(b.text))):
                     continue
                 budget -= 1
+                evaluated += 1
                 sc, why = pair_contradiction(a.text, b.text)
                 if sc >= self.min_pair_score:
                     pairs.append(ContradictionPair(_claim_brief(a), _claim_brief(b), sc, why))
         pairs.sort(key=lambda p: -p.score)
+        res.pairs_evaluated = evaluated
+        res.budget_exhausted = exhausted
+        if exhausted:
+            res.reasons.append(
+                f"contradiction scan hit the {self.max_pairs}-pair budget "
+                f"after {evaluated} pairs; later claims were not compared"
+            )
 
         hist_best = max([p.score for p in pairs], default=0.0)
         res.history_conflict_score = hist_best

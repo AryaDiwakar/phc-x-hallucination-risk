@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..entity.tracker import EntityTracker
 from ..memory import ConversationMemory
-from ..utils.text import entropy, similarity
+from ..utils.text import similarity
 
 _NP_REF_RE = re.compile(
     r"\b("

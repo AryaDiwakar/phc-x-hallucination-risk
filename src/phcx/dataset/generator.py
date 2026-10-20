@@ -3,7 +3,8 @@
 OUR RESEARCH DATASET -- not an established external benchmark.
 
 Constructs controlled multi-turn conversations with known ground truth across
-10 risk categories.  For every sample we store:
+11 categories (10 risk categories plus a benign control).  For every sample we
+store:
 
     prompt, history, evidence, expected answer, generated (simulated) answer,
     claims, hallucination label, provenance / contradiction / temporal /

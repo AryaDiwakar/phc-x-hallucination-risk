@@ -19,7 +19,9 @@ browser chat composer -> MV3 extension -> local PHC-X API -> policy decision
 - If the local service is unavailable, the extension fails open after a short
   timeout rather than trapping the user.
 - Dashboard controls expose policy thresholds, action distribution, benchmark
-  gates, and feedback.
+  gates, and the experiment archive. Labelled feedback is collected through the
+  API's `POST /v1/feedback` endpoint (appended to the same decision log); the
+  dashboard itself is read-only.
 
 ## Product Acceptance
 

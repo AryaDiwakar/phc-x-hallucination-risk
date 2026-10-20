@@ -1,4 +1,8 @@
 # PHC-X ablation study configuration (Section 20 / spec §20)
+# The experiment name determines the output file
+# (results/raw/ablation_<experiment>.json); `phc report` picks up
+# `ablation_phcx_train_baseline.json`, so it must match.
+experiment: phcx_train_baseline
 seed: 42
 seeds: [42, 123, 2024]
 dataset:
@@ -10,7 +14,9 @@ model:
   name: rf
   hyperparameters: { n_estimators: 300, max_depth: 8, min_samples_leaf: 5 }
 
-calibration: { method: isotonic }
+# Keep the calibrator in sync with configs/train.yaml so the ablation only
+# varies the feature groups.
+calibration: { method: platt }
 
 # A: prompt only ... G: full + white-box
 variants:

@@ -15,7 +15,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from ..intervention import RiskPolicy
+from ..intervention import BLOCKING_ACTIONS, RiskPolicy
 from ..utils.text import tokenize
 from .matrix import DatasetMatrix, featurize_rows
 from .metrics import auprc, auroc, bootstrap_ci, classification_metrics, per_category_metrics
@@ -201,7 +201,7 @@ def intervention_outcomes(
     labeled = np.asarray([x is not None for x in labels])
     y = labels[labeled].astype(int)
     actions = [d.action for d in decisions]
-    blocking = np.asarray([a in {"CLARIFY", "CLARIFY_OR_ABSTAIN", "ABSTAIN"} for a in actions])
+    blocking = np.asarray([a in BLOCKING_ACTIONS for a in actions])
     nonblocking = ~blocking
     result: Dict[str, Any] = {
         "n": len(rows),

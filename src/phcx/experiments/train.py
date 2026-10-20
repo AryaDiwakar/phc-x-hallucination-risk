@@ -11,11 +11,14 @@ import yaml
 
 from ..calibration.core import (
     calibration_report,
+    cross_fitted_calibration,
+    enforce_min_coverage,
     make_calibrator,
     optimize_thresholds,
     reliability_bins,
 )
 from ..features import FEATURE_GROUPS
+from ..features.engine import USE_FLAG_GROUPS
 from ..risk import RiskModel
 from .matrix import DatasetMatrix, featurize_splits, load_splits
 from .metrics import classification_metrics, per_category_metrics
@@ -32,11 +35,28 @@ def load_config(path: str | Path | None) -> Dict[str, Any]:
 
 
 def groups_from_config(cfg: Dict[str, Any]) -> List[str]:
+    """Resolve the active feature groups from the ``features:`` config block.
+
+    Every ``use_*`` switch is honoured: a group is kept only when all of the
+    switches that map to it are enabled.  Previously these switches were
+    ignored, so setting e.g. ``use_prompt: false`` had no effect at all.
+    """
     feats = cfg.get("features", {}) or {}
     mode = feats.get("mode", "black_box")
-    if feats.get("use_whitebox") or mode == "white_box":
-        return list(FEATURE_GROUPS.keys())
-    return list(NON_MODEL_GROUPS)
+    white = bool(feats.get("use_whitebox", False)) or mode == "white_box"
+
+    groups: List[str] = []
+    for g in NON_MODEL_GROUPS:
+        flags = [
+            f for f, gs in USE_FLAG_GROUPS.items()
+            if g in gs and f != "use_whitebox"
+        ]
+        if flags and not all(bool(feats.get(f, True)) for f in flags):
+            continue
+        groups.append(g)
+    if white:
+        groups.append("model")
+    return groups
 
 
 @dataclass
@@ -154,6 +174,8 @@ def run_training(
     # threshold search on VALIDATION probabilities only
     threshold_search = None
     threshold = 0.5
+    min_coverage = policy_cfg.get("min_coverage", None)
+    thresholds = None
     if val is not None and val.n_rows:
         threshold_search = optimize_thresholds(
             p_val_cal, val.y,
@@ -162,6 +184,12 @@ def run_training(
             abstention_cost=float(policy_cfg.get("abstention_cost", 2.0)),
         )
         threshold = float(threshold_search.thresholds.get("decision", 0.5))
+        thresholds = dict(threshold_search.thresholds)
+        if min_coverage is not None:
+            # the deployment gate constrains the *blocking* cut-point so that
+            # enough turns are still answered
+            cov = enforce_min_coverage(thresholds, p_val_cal, float(min_coverage))
+            thresholds = cov["thresholds"]
 
     report = _base_report(cfg, seed)
     report.update({
@@ -171,7 +199,7 @@ def run_training(
         "label_rates": {k: round(m.label_rate, 5) for k, m in matrices.items()},
         "fit_seconds": round(getattr(model, "fit_seconds", 0.0), 3),
         "threshold": threshold,
-        "thresholds": threshold_search.thresholds if threshold_search else None,
+        "thresholds": thresholds if thresholds is not None else None,
         "threshold_objective": threshold_search.objective if threshold_search else None,
         "test": evaluate(model, test, threshold),
         "calibration": None,
@@ -182,6 +210,15 @@ def run_training(
     if val is not None and val.n_rows:
         report["val"] = evaluate(model, val, threshold, with_categories=False)
         report["calibration"] = calibration_report(p_val_raw, p_val_cal, val.y)
+        # Isotonic interpolation fits its training split exactly, so the
+        # in-sample val ECE above is a memorisation artefact.  The
+        # out-of-fold figure is the honest estimate of how the calibrator
+        # generalises.
+        report["calibration_out_of_fold"] = calibration_report(
+            p_val_raw,
+            cross_fitted_calibration(p_val_raw, val.y, method=cal_method, seed=seed),
+            val.y,
+        )
         if np.size(p_val_cal):
             from .metrics import auroc
 

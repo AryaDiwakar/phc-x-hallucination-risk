@@ -102,6 +102,42 @@ class Explainer:
             pass
         return "heuristic"
 
+    # ------------------------------------------------------- numeric gradient
+    def _numeric_gradient(self, x: np.ndarray) -> Optional[np.ndarray]:
+        """Finite-difference gradient of the positive-class probability.
+
+        ``sklearn``'s ``MLPClassifier`` exposes neither ``coef_`` nor
+        ``feature_importances_``, so without this the gradient path silently
+        returned all-zero contributions and produced empty explanations.
+        """
+        base = getattr(self.model, "_model", None)
+        if base is None or not hasattr(base, "predict_proba"):
+            return None
+        x = np.asarray(x, dtype=float).reshape(-1)
+
+        def _p(vec: np.ndarray) -> Optional[float]:
+            try:
+                probs = base.predict_proba(vec.reshape(1, -1))
+                arr = np.asarray(probs, dtype=float)
+                return float(arr[0, 1]) if arr.ndim == 2 and arr.shape[1] > 1 else None
+            except Exception:
+                return None
+
+        if _p(x) is None:
+            return None
+        eps = 1e-3
+        grad = np.zeros(x.size, dtype=float)
+        for i in range(x.size):
+            xp = x.copy()
+            xp[i] += eps
+            xm = x.copy()
+            xm[i] -= eps
+            pp, pm = _p(xp), _p(xm)
+            if pp is None or pm is None:
+                return None
+            grad[i] = (pp - pm) / (2.0 * eps)
+        return grad
+
     # --------------------------------------------------------------- shap
     def _shap_contributions(self, x: np.ndarray, background: Optional[np.ndarray]) -> Optional[np.ndarray]:
         try:
@@ -159,7 +195,17 @@ class Explainer:
                     contrib = imp * (x - 0.0)
                 elif method == "gradient":
                     imp_map = getattr(self.model, "feature_importance")()
-                    contrib = np.array([imp_map.get(n, 0.0) for n in names]) * x
+                    imp = np.array([imp_map.get(n, 0.0) for n in names])
+                    if np.any(np.abs(imp) > 0):
+                        contrib = imp * x
+                    else:
+                        # the model exposes no importances (e.g. sklearn MLP):
+                        # fall back to a finite-difference gradient
+                        grad = self._numeric_gradient(x)
+                        if grad is None:
+                            method = "heuristic"
+                        else:
+                            contrib = grad * x
             except Exception:
                 method = "heuristic"
 

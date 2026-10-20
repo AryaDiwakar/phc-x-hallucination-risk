@@ -149,11 +149,16 @@ evidence'' actions remain non-blocking.
 provenance, consistency, evidence, model). Default serving is
 \emph{black-box}: the model group is zeroed. We train random forests
 (default), logistic regression, and gradient boosting on the train split;
-probabilities are isotonic/Platt-calibrated on validation only, and
-thresholds are searched on validation only with a cost matrix that penalizes
-letting a positive turn through unblocked. The heuristic baseline---a
-weighted noisy-OR over explainable signals---is always available as a
-transparent fallback.
+probabilities are Platt-calibrated on validation only, and thresholds are
+searched on validation only with a cost matrix that penalizes letting a
+positive turn through unblocked. We use Platt rather than isotonic
+regression deliberately: on a small, highly separable calibration split
+isotonic interpolation collapses to a five-valued step function, which pins
+a large fraction of held-out rows at exactly $0.0$ and destroys the ranking
+that the thresholds depend on. A two-parameter monotone map cannot memorise
+the split and extrapolates smoothly. The heuristic baseline---a weighted
+noisy-OR over explainable signals---is always available as a transparent
+fallback.
 
 \subsection{Intervention policy}
 Calibrated risk is mapped monotonically to actions at thresholds
@@ -167,7 +172,17 @@ $\tau_{\text{low}}<\tau_{\text{mod}}<\tau_{\text{high}}$:
 \textsc{Clarify}\ /\ \textsc{Abstain} & r\ge\tau_{\text{high}}
 \end{cases}
 \]
-with a user/latency budget deciding between clarify and abstain. Blocking
+with a user/latency budget deciding between clarify and abstain. Under the
+default \emph{balanced} preference the top band emits the
+\textsc{Clarify\_or\_Abstain} hedge; the \emph{aggressive} preference upgrades
+it to a hard \textsc{Abstain} at the same risk, and the latency budget
+downgrades a blocking action to a cheaper one when the analysis has already
+spent its budget. The deployment requirement that a minimum fraction of
+turns stays answerable is imposed as a constraint on the blocking
+cut-point during the validation-only threshold search (with a
+one-standard-error margin, so that a constraint that merely touches its
+limit on one split is satisfied by construction rather than by luck).
+Blocking
 actions (clarify/abstain) require an explicit user override in the
 extension; everything else proceeds, optionally after evidence injection.
 
@@ -230,7 +245,7 @@ history+provenance+evidence group reaches the best single configuration
 (Table~\ref{tab:ablation}).
 Conversation context---not the prompt alone---carries most of the signal.
 
-\textbf{Intervention behaviour.} The tuned policy blocks 39.9\% of turns
+\textbf{Intervention behaviour.} The tuned policy blocks \blockedshare{} of turns
 (coverage \coverage) while catching \caught{} of all positive (hallucination-prone)
 turns; generated turns carry hallucination rate \riskgenerated{}
 versus base rate \riskoverall---a safety margin of \safetymargin. All gates

@@ -201,6 +201,10 @@ class TransformersLocalAdapter(WhiteBoxAdapter):
         logits = out.logits[0, -1, :]
         probs = torch.softmax(logits, dim=-1)
         entropy = float(-(probs * torch.log(probs + 1e-12)).sum())
+        # the distribution over the *first* generated token is the next-token
+        # distribution at position 0, not a copy of the final-token entropy
+        first_probs = torch.softmax(out.logits[0, 0, :], dim=-1)
+        entropy_first = float(-(first_probs * torch.log(first_probs + 1e-12)).sum())
         top2 = torch.topk(probs, k=2).values
         margin = float(top2[0] - top2[1])
         states = out.hidden_states
@@ -208,7 +212,7 @@ class TransformersLocalAdapter(WhiteBoxAdapter):
         norms = [float(torch.norm(states[l][0, -1, :])) for l in range(len(states))]
         return {
             "wb_entropy": entropy,
-            "wb_entropy_first_token": entropy,
+            "wb_entropy_first_token": entropy_first,
             "wb_logit_margin": margin,
             "wb_max_prob": float(top2[0]),
             "wb_rep_norm": float(torch.norm(final)),

@@ -67,6 +67,22 @@ ABLATION_GROUPS = {
     "G_full_whitebox": ["prompt", "history", "provenance", "consistency", "evidence", "model"],
 }
 
+#: Maps each ``features.use_*`` switch in the config to the feature group(s) it
+#: controls.  The four consistency switches share the single ``consistency``
+#: group, so disabling any one of them drops that whole group rather than
+#: leaving a half-populated one behind.
+USE_FLAG_GROUPS: Dict[str, List[str]] = {
+    "use_prompt": ["prompt"],
+    "use_history": ["history"],
+    "use_provenance": ["provenance"],
+    "use_evidence": ["evidence"],
+    "use_contradiction": ["consistency"],
+    "use_temporal": ["consistency"],
+    "use_presupposition": ["consistency"],
+    "use_ambiguity": ["consistency"],
+    "use_whitebox": ["model"],
+}
+
 _Q_UNC = re.compile(r"\b(may|might|could|possibly|perhaps|probably|maybe|likely|unclear|unsure|approx)\b", re.I)
 _Q_FRESH = re.compile(r"\b(current|latest|today|now|recent|currently|up-to-date|nowadays|version)\b", re.I)
 
@@ -85,6 +101,15 @@ class FeatureContext:
     evidence: Optional[EvidenceResult] = None
     whitebox: Dict[str, float] = field(default_factory=dict)
     relevant_top_k: int = 8
+    #: Recent-turn view used for *content* analysis.  Size statistics (turn
+    #: count, claim count, provenance mix) always come from the full
+    #: conversation so that a long context stays visible to the model, while
+    #: relevance / drift / density are computed over the window only.
+    window: Optional[ConversationMemory] = None
+
+    @property
+    def content_memory(self) -> ConversationMemory:
+        return self.window if self.window is not None else self.memory
 
 
 class FeatureEngine:
@@ -123,7 +148,7 @@ class FeatureEngine:
             "prompt_is_question": 1.0 if "?" in p or re.match(r"^(what|why|how|when|where|who|which|is|are|did|do|does)\b", low) else 0.0,
             "prompt_num_entities": len(ents),
             "prompt_has_number": 1.0 if re.search(r"\d", p) else 0.0,
-            "prompt_has_negation": 1.0 if re.search(r"\b(not|no|never|none|without|n't)\b", low) else 0.0,
+            "prompt_has_negation": 1.0 if re.search(r"\b(not|no|never|none|without)\b|n't", low) else 0.0,
             "prompt_uncertainty_markers": len(_Q_UNC.findall(p)),
             "prompt_presupposition_count": float(pre.count if pre else 0.0),
             "prompt_unsupported_presupposition": float(pre.unsupported_count if pre else 0.0),
@@ -138,21 +163,22 @@ class FeatureEngine:
 
     # ------------------------------------------------------------ history
     def _history(self, ctx: FeatureContext) -> Dict[str, float]:
-        mem = ctx.memory
+        mem = ctx.memory          # full conversation: size / provenance
+        win = ctx.content_memory  # recent window: content analysis
         p = ctx.prompt or ""
         claims = mem.all_claims
-        rel = mem.relevant_claims(p, top_k=ctx.relevant_top_k) if p else []
+        rel = win.relevant_claims(p, top_k=ctx.relevant_top_k) if p else []
         rel_turns = {c.turn_id for c, _ in rel}
         rel_sims = [s for _, s in rel]
         chars = sum(len(t.text) for t in mem.turns)
         ref_tokens = ("it", "they", "them", "this", "that", "these", "those", "previous", "earlier", "our")
         ref_count = sum(
-            1 for t in mem.turns for tok in tokenize(t.text) if tok in ref_tokens
+            1 for t in win.turns for tok in tokenize(t.text) if tok in ref_tokens
         )
         # recency-weighted relevance: recent relevant turns matter more
         rec = 0.0
-        if rel and mem.turns:
-            max_id = max(t.turn_id for t in mem.turns)
+        if rel and win.turns:
+            max_id = max(t.turn_id for t in win.turns)
             for c, s in rel:
                 rec += s * (c.turn_id / max(1, max_id))
         return {
@@ -162,14 +188,18 @@ class FeatureEngine:
             "history_mean_relevance": sum(rel_sims) / len(rel_sims) if rel_sims else 0.0,
             # No history means no measurable semantic drift, not maximum drift.
             "history_semantic_distance": (
-                1.0 - max(rel_sims) if mem.turns and rel_sims else 0.0
+                1.0 - max(rel_sims) if win.turns and rel_sims else 0.0
             ),
             "history_char_len": chars,
             "history_user_claims": len(mem.claims_by_speaker("user")),
             "history_assistant_claims": len(mem.claims_by_speaker("assistant")),
-            "history_reference_density": ref_count / max(1, len(mem.turns)),
+            "history_reference_density": ref_count / max(1, len(win.turns)),
             "history_recency_relevance": rec,
-            "history_max_depth": len(mem.turns),
+            # how deep into the conversation the earliest relevant claim sits:
+            # 0 when nothing relevant was found
+            "history_max_depth": (
+                (len(mem.turns) - min(rel_turns) + 1) if rel_turns else 0.0
+            ),
         }
 
     # ---------------------------------------------------------- provenance

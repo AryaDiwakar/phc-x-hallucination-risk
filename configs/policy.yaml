@@ -2,10 +2,15 @@
 # NOTE: default thresholds are NOT assumed optimal; they are optimized on
 # validation data by `phc calibrate --optimize-policy`.
 thresholds:
+  # Risk-level cut-points.  The band structure is
+  #   LOW     : risk < low
+  #   MODERATE: low <= risk < moderate
+  #   HIGH    : moderate <= risk < high
+  #   CRITICAL: risk >= high
+  # so `high` is the entry point of the top band.
   low: 0.25
   moderate: 0.50
   high: 0.75
-  critical: 1.00
 
 actions:
   LOW: GENERATE
@@ -17,7 +22,9 @@ overrides:
   latency_budget_ms: 800        # if exceeded -> cheaper action down the chain
   evidence_available: true
   user_preference: balanced     # balanced | aggressive | permissive
-  min_risk_for_abstain: 0.75
+  min_risk_for_abstain: 0.75    # risk at/above which the refusing branch is allowed
+  # NOTE: a hard ABSTAIN is only emitted for the `aggressive` preference; the
+  # `balanced` default emits the CLARIFY_OR_ABSTAIN hedge at the same risk.
 
 costs:
   false_positive: 1.0           # wrongly flagging a safe answer
@@ -25,3 +32,8 @@ costs:
   abstention: 2.0               # refusing a answerable question
   retrieval: 0.4                # latency/compute cost of retrieval
   clarification: 1.5
+
+deployment:
+  min_coverage: 0.50            # at least half of the turns must still be answered
+                                # (enforced on the blocking cut-point during the
+                                #  validation-only threshold search)

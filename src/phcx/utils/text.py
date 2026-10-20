@@ -114,6 +114,25 @@ def contains_any(text: str, words: Sequence[str]) -> bool:
     return any(w.lower() in low for w in words)
 
 
+def compile_phrases(phrases: Iterable[str]) -> "re.Pattern[str]":
+    """Compile literal phrases into a word-boundary alternation (longest first).
+
+    Plain substring matching is unsafe for PHC-X: it lets ``"now"`` match
+    inside "knowledge" and ``"then"`` inside "strengthened", which silently
+    corrupts temporal reasoning.  Every literal phrase list in the package is
+    matched through this helper instead.
+    """
+    ordered = sorted({p.lower() for p in phrases if p}, key=len, reverse=True)
+    if not ordered:
+        return re.compile(r"(?!x)x")  # never matches
+    return re.compile(r"\b(?:" + "|".join(re.escape(p) for p in ordered) + r")\b", re.I)
+
+
+def find_phrases(text: str, pattern: "re.Pattern[str]") -> List[str]:
+    """Return the lowercased literal phrases matched by ``pattern`` in order."""
+    return [m.group(0).lower() for m in pattern.finditer(text or "")]
+
+
 def negation_present(text: str) -> bool:
     return any(t in _NEGATIONS for t in tokenize(text))
 
@@ -127,8 +146,14 @@ def clamp01(x: float) -> float:
 
 
 def entropy(probs: Sequence[float]) -> float:
+    """Shannon entropy in **nats** (natural log).
+
+    Natural log is used deliberately so that this matches the entropy
+    computed from model logits in ``models/adapters.py``; the two must share
+    a scale or the white-box features would be inconsistent with each other.
+    """
     h = 0.0
     for p in probs:
         if p > 0:
-            h -= p * math.log(p + 1e-12, 2)
+            h -= p * math.log(p + 1e-12)
     return h

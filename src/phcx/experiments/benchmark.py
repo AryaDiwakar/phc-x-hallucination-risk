@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from ..intervention import RiskPolicy
+from ..intervention import BLOCKING_ACTIONS, INTERVENTION_ACTIONS, RiskPolicy
 from .matrix import featurize_rows, load_splits
 from .metrics import auroc
 from .train import groups_from_config, load_config, train_model
@@ -46,15 +46,22 @@ def run_benchmark(
     policy_path = Path("configs/policy.yaml")
     policy = RiskPolicy.from_yaml(str(policy_path)) if policy_path.exists() else RiskPolicy()
     if val is not None and val.n_rows:
-        from ..calibration.core import optimize_thresholds
+        from ..calibration.core import enforce_min_coverage, optimize_thresholds
 
         pcfg = cfg.get("policy", {}) or {}
+        p_val = model.predict_proba(val.X, calibrated=True)
         search = optimize_thresholds(
-            model.predict_proba(val.X, calibrated=True), val.y,
+            p_val, val.y,
             cost_fp=float(pcfg.get("cost_fp", 1.0)),
             cost_fn=float(pcfg.get("cost_fn", 3.0)),
             abstention_cost=float(pcfg.get("abstention_cost", 2.0)))
-        policy.apply_thresholds(search.thresholds)
+        thresholds = dict(search.thresholds)
+        min_cov = pcfg.get("min_coverage", None)
+        if min_cov is not None:
+            # keep at least `min_coverage` of turns answerable by raising the
+            # blocking cut-point; the cost objective alone would over-block
+            thresholds = enforce_min_coverage(thresholds, p_val, float(min_cov))["thresholds"]
+        policy.apply_thresholds(thresholds)
     thr = dict(policy.thresholds)
 
     p = model.predict_proba(test.X, calibrated=True)
@@ -81,11 +88,9 @@ def run_benchmark(
 
     gen_mask = np.array([a == "GENERATE" for a in actions])
     # blocking actions: the turn is not answered (clarify / abstain)
-    block_mask = np.array([a in ("CLARIFY", "CLARIFY_OR_ABSTAIN", "ABSTAIN")
-                           for a in actions])
+    block_mask = np.array([a in BLOCKING_ACTIONS for a in actions])
     # interception: anything that forces evidence retrieval or clarification
-    intervene_mask = np.array([a in ("RETRIEVE", "CLARIFY", "CLARIFY_OR_ABSTAIN",
-                                     "ABSTAIN") for a in actions])
+    intervene_mask = np.array([a in INTERVENTION_ACTIONS for a in actions])
 
     pos_rate_generated = float(y[gen_mask].mean()) if gen_mask.any() else 0.0
     pos_rate_overall = float(y.mean())

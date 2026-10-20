@@ -31,7 +31,13 @@ model:
     min_samples_leaf: 5
 
 calibration:
-  method: isotonic               # none | platt | isotonic | temperature
+  # Platt (2 parameters) rather than isotonic: on a small, highly separable
+  # calibration split sklearn's isotonic fit collapses to a 5-valued step
+  # function, which pinned 30% of test rows at exactly 0.0 and reduced 161
+  # distinct risk scores to 7 -- destroying the ranking and reporting a risk
+  # of 0 for prompts with a detected unsupported presupposition.  A 2-parameter
+  # monotone map cannot memorise the split and extrapolates smoothly.
+  method: platt                 # none | platt | isotonic | temperature
   split: val                     # calibration must use validation split only
 
 policy:
@@ -39,6 +45,7 @@ policy:
   cost_fp: 1.0
   cost_fn: 3.0
   abstention_cost: 2.0
+  min_coverage: 0.50      # at least half of the turns must still be answered
 
 evaluation:
   metrics: [auroc, auprc, f1, precision, recall, ece, brier, nll]

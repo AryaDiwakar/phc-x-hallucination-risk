@@ -5,9 +5,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - PHC_HOST=0.0.0.0
-      - PHC_PORT=8000
-      - PHC_TELEMETRY=0
+      # PHCX_* are the variables the service actually reads.
+      - PHCX_LOG=data/decision_log.jsonl
+      - PHCX_RESULTS=results/raw
+      - PHCX_POLICY=configs/policy.yaml
     volumes:
       - ./data:/app/data
       - ./results:/app/results
@@ -19,12 +20,9 @@ services:
       timeout: 5s
       retries: 3
 
-  dashboard:
-    build: ./dashboard
-    image: phc-x-dashboard:latest
-    ports:
-      - "5173:80"
-    depends_on:
-      - phc-api
-    environment:
-      - VITE_API_BASE=http://localhost:8000
+  # The dashboard is a static, build-free vanilla-JS app.  It is mounted by
+  # the API process itself at /dashboard/, so there is no separate service
+  # to build or run:
+  #
+  #   docker compose up --build
+  #   open http://127.0.0.1:8000/dashboard/

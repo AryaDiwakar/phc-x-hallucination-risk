@@ -21,20 +21,25 @@ N Sai Baba (23BDS0019).
 
 | Metric | PHC-X (RF) | Heuristic baseline |
 |---|---|---|
-| AUROC | **0.984** [0.966, 0.996] (1000× bootstrap CI) | 0.717 |
-| AUPRC | **0.995** | 0.852 |
-| F1 @ tuned threshold | **0.961** (P 0.961 / R 0.961) | 0.698 |
-| ECE (10-bin) | **0.026** | 0.280 |
-| Multi-seed AUROC | 0.980 ± 0.003 (seeds 42 / 123 / 2024) | — |
+| AUROC | **0.986** [0.972, 0.996] (1000× bootstrap CI) | 0.727 |
+| AUPRC | **0.992** | 0.852 |
+| F1 @ tuned threshold | **0.951** (P 0.942 / R 0.961) | 0.716 |
+| ECE (10-bin) | **0.048** (0.107 uncalibrated) | 0.252 |
+| Multi-seed AUROC | 0.986 ± 0.000 (seeds 42 / 123 / 2024) | — |
 
-Ablation AUROC: `A_prompt_only` 0.846 → `B` 0.846 → `C` 0.889 → `D` 0.895 →
-`E_history_provenance_evidence` 0.978 → `F_full` 0.984.
-Benchmark gates **PASS**: coverage 50.9 %, positives caught 96.1 %,
-safety margin 0.613 (blocking = CLARIFY/CLARIFY_OR_ABSTAIN/ABSTAIN).
-Significance vs. heuristic: McNemar p < 0.001; DeLong p ≈ 0.46 (AUROC CIs
+Ablation AUROC: `A_prompt_only` 0.853 → `B` 0.853 → `C` 0.887 → `D` 0.901 →
+`E_history_provenance_evidence` 0.984 → `F_full` 0.986.
+Benchmark gates **PASS**: coverage 51.5 %, positives caught 96.1 %,
+safety margin 0.593 (blocking = CLARIFY/CLARIFY_OR_ABSTAIN/ABSTAIN).
+Significance vs. heuristic: McNemar p < 0.001; DeLong p ≈ 0.45 (AUROC CIs
 overlap — we report both).
 
-Latency: ~22 ms median / 36 ms p95 per analysis steady-state (SHAP warm-up is
+The cost-sensitive threshold search is stable across seeds: multi-seed F1 is
+0.943 ± 0.009 and the operating point varies by less than 0.07. The coverage
+requirement (≥ 50 % of turns still answered) is imposed on the blocking
+cut-point during the validation-only threshold search.
+
+Latency: ~21 ms median / 23 ms p95 per analysis steady-state (SHAP warm-up is
 done during API start-up; machine-local measurement).
 
 ---
@@ -84,7 +89,7 @@ on val only), `stats` (paired significance between two checkpoints).
 ## Tests
 
 ```bash
-python3 -m pytest tests -q        # 71 tests, ~25 s
+python3 -m pytest tests -q        # 93 tests, ~25 s
 ```
 
 Covers utils, memory, the five consistency engines, retrieval/features, risk

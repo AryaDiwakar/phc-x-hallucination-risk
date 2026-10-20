@@ -12,7 +12,24 @@ from typing import Any, Dict, List, Optional
 
 from ..utils.io import load_yaml
 
-ACTIONS = ("GENERATE", "GENERATE_WITH_EVIDENCE", "RETRIEVE", "CLARIFY", "ABSTAIN")
+#: The full action vocabulary PHC-X can emit.  ``CLARIFY_OR_ABSTAIN`` is the
+#: default hedge at the top of the risk band; ``ABSTAIN`` is the hard refusal
+#: reserved for users who opt into the aggressive preference.
+ACTIONS = (
+    "GENERATE",
+    "GENERATE_WITH_EVIDENCE",
+    "RETRIEVE",
+    "CLARIFY",
+    "CLARIFY_OR_ABSTAIN",
+    "ABSTAIN",
+)
+
+#: Actions that do not answer the turn (the extension gates on these).
+BLOCKING_ACTIONS = ("CLARIFY", "CLARIFY_OR_ABSTAIN", "ABSTAIN")
+
+#: Actions that change the generation path (retrieval / clarification).
+INTERVENTION_ACTIONS = ("RETRIEVE", "CLARIFY", "CLARIFY_OR_ABSTAIN", "ABSTAIN")
+
 
 DEFAULT_THRESHOLDS = {
     "low": 0.25,
@@ -151,8 +168,14 @@ class RiskPolicy:
                 action = "CLARIFY"
                 reason = "critical risk: ask clarification before generating"
             elif risk >= abstain_at:
-                action = "CLARIFY_OR_ABSTAIN"
-                reason = "critical risk: ask clarification or abstain"
+                if self.user_preference == "aggressive":
+                    # an aggressive user opted into a hard refusal at the top
+                    # of the risk band instead of the clarify-or-abstain hedge
+                    action = "ABSTAIN"
+                    reason = "critical risk: abstaining (aggressive safety preference)"
+                else:
+                    action = "CLARIFY_OR_ABSTAIN"
+                    reason = "critical risk: ask clarification or abstain"
             else:
                 action = "CLARIFY"
                 reason = "critical risk: clarify before proceeding"

@@ -5,7 +5,7 @@ numeric / negation entailment checks -> optional transformer NLI (if a local
 model is configured) -> claim-level labels.
 
 An external LLM may be used ONLY as an additional, clearly-separated signal
-(PHC_X_NLI_MODEL); it is never the sole source of ground truth.
+(PHC_NLI_MODEL); it is never the sole source of ground truth.
 """
 from __future__ import annotations
 

@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..memory import ConversationMemory
-from ..utils.text import similarity
+from ..utils.text import compile_phrases, similarity
 
 _RELATIVE = {
     "today": 0, "now": 0, "currently": 0, "right now": 0, "at present": 0,
@@ -33,6 +33,22 @@ _ABS_DATE_RE = re.compile(
     r"\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})\b",
     re.I,
 )
+
+# Literal phrase lists are matched on word boundaries: plain substring
+# matching would detect "now" inside "knowledge" and "then" inside
+# "strengthened", producing spurious freshness anchors and vague references.
+_RELATIVE_RE = compile_phrases(_RELATIVE.keys())
+_FRESHNESS_RE = compile_phrases(_FRESHNESS_CUES)
+
+
+def _fresh_evidence_re(now_year: int) -> "re.Pattern[str]":
+    """Fresh-evidence matcher whose year window follows the reference clock."""
+    years = "|".join(str(y) for y in range(now_year - 1, now_year + 1))
+    return re.compile(
+        rf"\b(current|latest|now|recent|today|this year|up-to-date|up to date|{years})\b",
+        re.I,
+    )
+
 
 
 @dataclass
@@ -61,10 +77,13 @@ class TemporalResult:
 
 def extract_temporal(text: str) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
-    low = (text or "").lower()
-    for phrase, days in _RELATIVE.items():
-        if phrase in low:
-            out.append({"expr": phrase, "kind": "relative", "days": days})
+    raw = text or ""
+    for m in _RELATIVE_RE.finditer(raw):
+        phrase = m.group(0).lower()
+        days = _RELATIVE.get(phrase)
+        if days is None:
+            continue
+        out.append({"expr": phrase, "kind": "relative", "days": days})
     for m in _ABS_DATE_RE.finditer(text or ""):
         val = next(g for g in m.groups() if g)
         out.append({"expr": val, "kind": "absolute", "days": None})
@@ -94,8 +113,7 @@ class TemporalEngine:
         res.prompt_expressions = [e["expr"] for e in pexpr]
 
         # freshness demand: prompt asks about *current* state
-        low = (prompt or "").lower()
-        res.freshness_demand = any(cue in low for cue in _FRESHNESS_CUES)
+        res.freshness_demand = bool(_FRESHNESS_RE.search(prompt or ""))
 
         # memory temporal content, linked to relevant claims
         rel = memory.relevant_claims(prompt, top_k=8, min_sim=0.08) if prompt else []
@@ -128,9 +146,10 @@ class TemporalEngine:
             )
 
         # fresh external evidence can satisfy a freshness demand
+        fresh_re = _fresh_evidence_re(now_year)
         fresh_hits = [
             t for t in (fresh_evidence or [])
-            if re.search(r"\b(current|latest|now|2026|2025|recent|up-to-date|up to date)\b", t, re.I)
+            if fresh_re.search(t or "")
         ]
 
         # age estimate of relevant memory (turn index as proxy when no clock)
