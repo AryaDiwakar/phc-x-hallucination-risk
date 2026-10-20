@@ -2,55 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PHC-X</title>
   <style>
-    body {
-      width: 300px; margin: 0; padding: 14px;
-      background: #0e1117; color: #dfe6f1;
-      font: 13px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
-    }
-    h1 { font-size: 15px; margin: 0 0 4px; color: #5aa9ff; }
-    .sub { color: #8b97ab; font-size: 11px; margin-bottom: 12px; }
-    label { display: block; margin: 10px 0 4px; color: #8b97ab; font-size: 12px; }
-    input[type=text] {
-      width: 100%; background: #161b24; color: #dfe6f1;
-      border: 1px solid #263044; border-radius: 6px; padding: 6px 8px;
-      font-family: ui-monospace, Menlo, monospace; font-size: 12px;
-    }
-    .row { display: flex; align-items: center; gap: 8px; margin: 8px 0; color: #dfe6f1; }
-    .row input { accent-color: #5aa9ff; }
-    button {
-      width: 100%; margin-top: 12px; padding: 7px;
-      background: #5aa9ff; color: #06121f; font-weight: 700;
-      border: none; border-radius: 8px; cursor: pointer;
-    }
-    button.secondary { background: #1a2130; color: #dfe6f1; border: 1px solid #263044; font-weight: 400; }
-    #status { margin-top: 10px; font-size: 12px; color: #8b97ab; }
-    #status.ok { color: #37d399; }
-    #status.err { color: #ff5c72; }
-    .riskline { display:flex; gap:6px; align-items:center; margin-top:6px; font-size:12px; }
-    .riskline b { font-family: ui-monospace, Menlo, monospace; font-size:14px; }
+    :root { --bg:#071019; --surface:#0d1924; --raised:#112130; --text:#e8f0f5; --muted:#8295a6; --faint:#506577; --line:#203545; --cyan:#73d9ed; --mint:#64e0b0; --red:#f16c7b; --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace; }
+    * { box-sizing:border-box; }
+    body { width:340px; margin:0; padding:18px; background:var(--bg); color:var(--text); font:12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    body::before { content:""; position:fixed; inset:0; pointer-events:none; opacity:.18; background-image:linear-gradient(rgba(115,217,237,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(115,217,237,.06) 1px,transparent 1px); background-size:32px 32px; }
+    .head { position:relative; display:flex; align-items:center; justify-content:space-between; padding-bottom:17px; border-bottom:1px solid var(--line); }
+    .brand { display:flex; align-items:center; gap:9px; }.mark { display:flex; align-items:flex-end; gap:2px; height:19px; }.mark i { width:5px; border-radius:3px 3px 1px 1px; background:var(--cyan); }.mark i:nth-child(1){height:8px;opacity:.55}.mark i:nth-child(2){height:14px}.mark i:nth-child(3){height:19px;opacity:.75}.brand strong { font-size:14px; letter-spacing:.15em; }.brand strong span { color:var(--cyan); }.eyebrow { color:var(--faint); font:9px var(--mono); text-transform:uppercase; letter-spacing:.1em; }
+    .service { display:flex; align-items:center; gap:6px; color:var(--faint); font:9px var(--mono); }.service-dot { width:6px; height:6px; border-radius:50%; background:var(--mint); box-shadow:0 0 9px var(--mint); }
+    .intro { position:relative; padding:18px 0 13px; }.intro h1 { margin:0; font-size:19px; letter-spacing:-.03em; font-weight:600; }.intro p { margin:6px 0 0; color:var(--muted); font-size:11px; line-height:1.55; }
+    .settings-card { position:relative; padding:14px; background:rgba(13,25,36,.78); border:1px solid var(--line); border-radius:6px; }.section-label { display:block; margin-bottom:9px; color:var(--faint); font:9px var(--mono); letter-spacing:.11em; text-transform:uppercase; }.settings-card input[type=text] { width:100%; padding:9px; background:var(--bg); color:var(--muted); border:1px solid var(--line); border-radius:4px; font:10px var(--mono); }.settings-card input:focus { outline:1px solid var(--cyan); border-color:var(--cyan); }
+    .switch-row { display:flex; align-items:center; gap:9px; margin-top:13px; color:var(--muted); font-size:11px; }.switch-row input { position:absolute; opacity:0; }.switch { position:relative; width:28px; height:16px; border:1px solid var(--line); border-radius:10px; background:var(--bg); }.switch::after { content:""; position:absolute; top:3px; left:3px; width:8px; height:8px; background:var(--faint); border-radius:50%; transition:.15s ease; }.switch-row input:checked + .switch { border-color:var(--cyan-deep); background:rgba(115,217,237,.13); }.switch-row input:checked + .switch::after { left:15px; background:var(--cyan); box-shadow:0 0 8px var(--cyan); }.switch-row input:focus-visible + .switch { outline:1px solid var(--cyan); }
+    .actions { position:relative; display:grid; gap:7px; margin-top:15px; }.actions button { width:100%; padding:9px; border-radius:4px; cursor:pointer; font-size:11px; }.primary { color:#06131d; background:var(--cyan); border:1px solid var(--cyan); font-weight:700; }.secondary { color:var(--muted); background:transparent; border:1px solid var(--line); }.secondary:hover { color:var(--cyan); border-color:var(--cyan-deep); }.primary:hover { background:#9be8f4; }
+    .status-card { position:relative; display:flex; align-items:flex-start; gap:9px; min-height:39px; margin-top:13px; padding:10px; border:1px solid var(--line); border-radius:4px; color:var(--muted); font:10px var(--mono); }.status-card::before { content:""; width:5px; height:5px; margin-top:4px; flex:0 0 auto; border-radius:50%; background:var(--faint); }.status-card.ok { color:var(--mint); border-color:rgba(100,224,176,.3); }.status-card.ok::before { background:var(--mint); box-shadow:0 0 8px var(--mint); }.status-card.err { color:var(--red); border-color:rgba(241,108,123,.35); }.status-card.err::before { background:var(--red); }.model { position:relative; margin:8px 2px 0; color:var(--faint); font:9px var(--mono); }.last { position:relative; display:flex; gap:6px; align-items:center; margin-top:12px; color:var(--faint); font:10px var(--mono); }.last b { color:var(--text); font-size:12px; }.footer { display:flex; justify-content:space-between; margin-top:17px; color:var(--faint); font:9px var(--mono); text-transform:uppercase; letter-spacing:.08em; }.footer a { color:var(--cyan); text-decoration:none; }
   </style>
 </head>
 <body>
-  <h1>PHC-X</h1>
-  <div class="sub">Pre-generation hallucination guard</div>
-
-  <label>local API base</label>
-  <input type="text" id="api-base" spellcheck="false" />
-
-  <div class="row"><input type="checkbox" id="enabled" /><label for="enabled" style="margin:0">guard enabled</label></div>
-  <div class="row"><input type="checkbox" id="block" /><label for="block" style="margin:0">block send on CLARIFY / ABSTAIN</label></div>
-  <div class="row"><input type="checkbox" id="badge" /><label for="badge" style="margin:0">show toolbar risk badge</label></div>
-
-  <button id="save">Save settings</button>
-  <button id="health" class="secondary">Check service</button>
-  <button id="dash" class="secondary">Open dashboard</button>
-
-  <div id="status">–</div>
-  <div id="model" class="sub"></div>
-  <div id="last" class="riskline"></div>
-
+  <div class="head"><div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>PHC<span>/</span>X</strong></div><div class="service"><span class="service-dot"></span>local guard</div></div>
+  <div class="intro"><div class="eyebrow">pre-generation safety layer</div><h1>Keep the next answer grounded.</h1><p>Configure the local guard that checks chat prompts before they reach a model.</p></div>
+  <section class="settings-card">
+    <label class="section-label" for="api-base">local API endpoint</label>
+    <input type="text" id="api-base" spellcheck="false" />
+    <label class="switch-row"><input type="checkbox" id="enabled" /><span class="switch"></span><span>guard enabled</span></label>
+    <label class="switch-row"><input type="checkbox" id="block" /><span class="switch"></span><span>pause on clarify / abstain</span></label>
+    <label class="switch-row"><input type="checkbox" id="badge" /><span class="switch"></span><span>show toolbar risk badge</span></label>
+  </section>
+  <div class="actions"><button id="save" class="primary">Save settings</button><button id="health" class="secondary">Check service</button><button id="dash" class="secondary">Open risk dashboard <span aria-hidden="true">&#8594;</span></button></div>
+  <div id="status" class="status-card">checking local service...</div>
+  <div id="model" class="model"></div>
+  <div id="last" class="last"></div>
+  <div class="footer"><a href="http://127.0.0.1:8000/dashboard/" target="_blank">PHC/X dashboard</a><span>v0.1.0</span></div>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -40,7 +40,7 @@ async function refreshHealth() {
   const badge = $("health-badge");
   try {
     const h = await api("/health");
-    badge.textContent = `online · ${h.n_requests} req`;
+    badge.textContent = `online / ${h.n_requests} req`;
     badge.className = "badge ok";
     $("model-badge").textContent = `model: ${h.model}`;
     $("footer-version").textContent = `API v${h.version}`;
@@ -50,6 +50,7 @@ async function refreshHealth() {
   } catch (e) {
     badge.textContent = "offline";
     badge.className = "badge err";
+    $("model-badge").textContent = "start phc serve";
   }
 }
 
@@ -78,9 +79,18 @@ function readHistory() {
 /* --------------------------------------------------------------- analyze */
 async function analyze() {
   const prompt = $("prompt").value.trim();
-  if (!prompt) return;
-  $("btn-analyze").disabled = true;
-  $("analyze-meta").textContent = "analyzing…";
+  const button = $("btn-analyze");
+  const meta = $("analyze-meta");
+  if (!prompt) {
+    meta.textContent = "Add a prompt to begin";
+    meta.className = "action-meta error";
+    $("prompt").focus();
+    return;
+  }
+  button.disabled = true;
+  button.querySelector("span").textContent = "Analyzing...";
+  meta.textContent = "Tracing prompt, history, and evidence...";
+  meta.className = "action-meta";
   try {
     const payload = await api("/v1/analyze", {
       method: "POST",
@@ -97,9 +107,11 @@ async function analyze() {
       `request ${payload.request_id} · ${payload.latency_ms} ms · model ${payload.model}`;
     loadMetrics();
   } catch (e) {
-    $("analyze-meta").textContent = `error: ${e.message}`;
+    meta.textContent = `error: ${e.message}`;
+    meta.className = "action-meta error";
   } finally {
-    $("btn-analyze").disabled = false;
+    button.disabled = false;
+    button.querySelector("span").textContent = "Analyze risk";
   }
 }
 
@@ -331,6 +343,12 @@ function init() {
   $("btn-metrics").onclick = loadMetrics;
   $("btn-refresh").onclick = refreshHealth;
   $("btn-reset").onclick = async () => { await api("/v1/reset", { method: "POST" }); loadMetrics(); };
+  $("prompt").addEventListener("keydown", (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      event.preventDefault();
+      analyze();
+    }
+  });
   ["t-low", "t-moderate", "t-high"].forEach((id) => {
     $(id).addEventListener("input", (e) => {
       $(id.replace("t-", "v-")).textContent = Number(e.target.value).toFixed(2);

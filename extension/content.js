@@ -144,7 +144,10 @@ function renderResult(res, anchor, onProceed) {
   const level = res.risk_level || "LOW";
   const color = LEVEL_COLORS[level] || LEVEL_COLORS.LOW;
   const dec = res.decision || {};
-  const blocking = ["CLARIFY", "CLARIFY_OR_ABSTAIN", "ABSTAIN"].includes(dec.action);
+  // `blockOnCritical` is the user's "pause on clarify/abstain" preference:
+  // when it is off the guard still shows the panel but never blocks the send.
+  const blocking = CFG.blockOnCritical !== false &&
+    ["CLARIFY", "CLARIFY_OR_ABSTAIN", "ABSTAIN"].includes(dec.action);
   const factors = (res.explanation && res.explanation.top_factors || []).slice(0, 3);
   const reasons = (res.engine_reasons || []).slice(0, 3);
 

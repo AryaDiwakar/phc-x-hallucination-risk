@@ -34,24 +34,24 @@ async function save() {
   await chrome.runtime.sendMessage({ type: "phc-save-settings", settings });
   const status = $("status");
   status.textContent = "settings saved";
-  status.className = "ok";
-  setTimeout(() => { status.textContent = "–"; status.className = ""; }, 1500);
+  status.className = "status-card ok";
+  setTimeout(() => { status.textContent = "ready"; status.className = "status-card"; }, 1500);
 }
 
 async function checkHealth() {
   const status = $("status");
   status.textContent = "checking…";
-  status.className = "";
+  status.className = "status-card";
   const resp = await chrome.runtime.sendMessage({ type: "phc-health" });
   if (resp && resp.ok) {
     status.textContent = "service online";
-    status.className = "ok";
+    status.className = "status-card ok";
     $("model").textContent =
       `model: ${resp.health.model} · uptime ${resp.health.uptime_s}s · ` +
       `${resp.health.n_requests} requests`;
   } else {
     status.textContent = `offline: ${(resp && resp.error) || "no response"}`;
-    status.className = "err";
+    status.className = "status-card err";
     $("model").textContent = "start it with: phc serve";
   }
 }

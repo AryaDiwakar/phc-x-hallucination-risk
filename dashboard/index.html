@@ -3,127 +3,138 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PHC-X Dashboard</title>
+  <meta name="theme-color" content="#08111b" />
+  <title>PHC-X / Risk operations</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <div class="brand">
-      <span class="logo">PHC&#8209;X</span>
-      <span class="tag">Provenance-aware Conversational Hallucination Risk</span>
-    </div>
-    <div class="status">
-      <label>API
-        <input id="api-base" value="http://127.0.0.1:8000" spellcheck="false" />
-      </label>
-      <span id="health-badge" class="badge">connecting…</span>
-      <span id="model-badge" class="badge muted">model: –</span>
-      <button id="btn-refresh" class="ghost">refresh</button>
-    </div>
-  </header>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="PHC-X home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="brand-copy">
+          <strong>PHC<span>/</span>X</strong>
+          <small>risk operations</small>
+        </span>
+      </a>
+      <div class="topbar-context">
+        <span class="context-label">local inference layer</span>
+        <span class="live-dot" aria-hidden="true"></span>
+        <span id="health-badge" class="badge">connecting...</span>
+        <span id="model-badge" class="badge muted">model: -</span>
+        <button id="btn-refresh" class="icon-button" title="Refresh service status" aria-label="Refresh service status">
+          <span aria-hidden="true">&#8635;</span>
+        </button>
+      </div>
+    </header>
 
-  <main>
-    <!-- ------------------------------------------------------- analyzer -->
-    <section class="panel wide">
-      <h2>1 &middot; Risk analyzer <span class="hint">pre-generation check, before the model answers</span></h2>
-      <textarea id="prompt" rows="3" placeholder="Type the user prompt to evaluate…"></textarea>
-
-      <div class="grid2">
+    <main id="top">
+      <section class="intro">
         <div>
-          <h3>Conversation history <button id="btn-add-turn" class="ghost small">+ turn</button></h3>
-          <div id="history"></div>
+          <p class="eyebrow"><span>01</span> decision intelligence / pre-generation</p>
+          <h1>See the risk <em>before</em><br />the answer exists.</h1>
+          <p class="lede">PHC-X reads the conversation, provenance, and available evidence to recommend the safest next move before a single token is generated.</p>
         </div>
-        <div>
-          <h3>Evidence passages <span class="hint">one per line</span></h3>
-          <textarea id="evidence" rows="6" placeholder="The Orion-A datasheet lists 12,000 annotated samples."></textarea>
-          <label class="row"><input type="checkbox" id="prefer-clarify" /> prefer clarification on critical risk</label>
+        <div class="intro-meta">
+          <div class="micro-stat"><span>mode</span><b>offline-first</b></div>
+          <div class="micro-stat"><span>median latency</span><b>~20 ms</b></div>
+          <div class="micro-stat"><span>policy</span><b>cost-sensitive</b></div>
         </div>
-      </div>
+      </section>
 
-      <div class="actions">
-        <button id="btn-analyze" class="primary">Analyze risk</button>
-        <span id="analyze-meta" class="hint"></span>
-      </div>
+      <div class="section-rule"><span>live workspace</span><span>all signals stay on this machine</span></div>
 
-      <div id="result" class="result hidden">
-        <div class="gauge-wrap">
-          <div id="gauge" class="gauge"><div class="gauge-inner"><span id="gauge-score">0.00</span><small id="gauge-level">LOW</small></div></div>
-          <div class="action-card">
-            <div class="action-line"><span class="label">Action</span><span id="action" class="pill">–</span></div>
-            <div class="action-line"><span class="label">Reason</span><span id="reason">–</span></div>
-            <div class="action-line"><span class="label">Latency</span><span id="latency">–</span></div>
-          </div>
-        </div>
-
-        <div class="grid2">
+      <section class="panel analyzer-panel" id="analyzer">
+        <div class="panel-heading">
           <div>
-            <h3>Top contributing factors <span class="hint" id="explain-method"></span></h3>
-            <div id="factors"></div>
+            <div class="heading-line"><span class="step">01</span><span class="kicker">risk analyzer</span><span class="live-pill">pre-generation check</span></div>
+            <h2>Evaluate the next turn</h2>
+            <p class="panel-description">Compose a prompt, add context, and inspect the recommendation path.</p>
           </div>
-          <div>
-            <h3>Signals</h3>
-            <div id="signals"></div>
+          <label class="api-field">API endpoint
+            <input id="api-base" value="http://127.0.0.1:8000" spellcheck="false" />
+          </label>
+        </div>
+
+        <div class="prompt-field">
+          <label for="prompt"><span>user prompt</span><kbd>⌘ / Ctrl + Enter</kbd></label>
+          <textarea id="prompt" rows="3" placeholder="Ask anything you want to evaluate..."></textarea>
+        </div>
+
+        <div class="workspace-grid">
+          <div class="input-card">
+            <div class="subheading"><h3>Conversation history</h3><button id="btn-add-turn" class="text-button">+ add turn</button></div>
+            <p class="field-note">Recent turns help the engine spot contradictions and unresolved claims.</p>
+            <div id="history"></div>
+          </div>
+          <div class="input-card">
+            <div class="subheading"><h3>Evidence passages</h3><span class="field-note">one per line</span></div>
+            <p class="field-note">Ground the decision with passages you trust, or let local retrieval find them.</p>
+            <textarea id="evidence" rows="5" placeholder="The Orion-A datasheet lists 12,000 annotated samples."></textarea>
+            <label class="check-row"><input type="checkbox" id="prefer-clarify" /><span>Prefer clarification when risk is critical</span></label>
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- --------------------------------------------------------- policy -->
-    <section class="panel">
-      <h2>2 &middot; Intervention policy</h2>
-      <div class="sliders">
-        <label>low &lt; <span id="v-low">0.25</span>
-          <input type="range" id="t-low" min="0.02" max="0.60" step="0.01" value="0.25" /></label>
-        <label>moderate &lt; <span id="v-moderate">0.50</span>
-          <input type="range" id="t-moderate" min="0.10" max="0.85" step="0.01" value="0.50" /></label>
-        <label>high &lt; <span id="v-high">0.75</span>
-          <input type="range" id="t-high" min="0.20" max="0.98" step="0.01" value="0.75" /></label>
-      </div>
-      <label class="row">preference
-        <select id="pref">
-          <option>balanced</option><option>aggressive</option><option>permissive</option>
-        </select>
-      </label>
-      <div class="actions">
-        <button id="btn-policy" class="primary">Apply policy</button>
-        <span id="policy-meta" class="hint"></span>
-      </div>
-      <div class="legend">
-        <div><span class="dot low"></span>LOW → GENERATE</div>
-        <div><span class="dot moderate"></span>MODERATE → GENERATE_WITH_EVIDENCE / RETRIEVE</div>
-        <div><span class="dot high"></span>HIGH → RETRIEVE</div>
-        <div><span class="dot critical"></span>CRITICAL → CLARIFY / ABSTAIN</div>
-      </div>
-    </section>
+        <div class="analyzer-actions">
+          <button id="btn-analyze" class="primary-button"><span>Analyze risk</span><b aria-hidden="true">&#8594;</b></button>
+          <span id="analyze-meta" class="action-meta">Ready for a prompt</span>
+        </div>
 
-    <!-- -------------------------------------------------------- metrics -->
-    <section class="panel">
-      <h2>3 &middot; Live metrics
-        <button id="btn-metrics" class="ghost small">refresh</button>
-        <button id="btn-reset" class="ghost small danger">reset log</button>
-      </h2>
-      <div id="metrics" class="metrics">
-        <div class="stat"><b id="m-n">0</b><span>requests</span></div>
-        <div class="stat"><b id="m-risk">–</b><span>mean risk</span></div>
-        <div class="stat"><b id="m-labeled">0</b><span>labeled</span></div>
+        <div id="result" class="result hidden">
+          <div class="result-header"><div><span class="kicker">decision trace</span><h2>Recommendation</h2></div><span class="result-note">explainable by design</span></div>
+          <div class="result-overview">
+            <div class="gauge-wrap">
+              <div id="gauge" class="gauge"><div class="gauge-inner"><span id="gauge-score">0.00</span><small id="gauge-level">LOW</small><em>risk score</em></div></div>
+              <div class="action-card">
+                <div class="action-line"><span class="label">recommended action</span><span id="action" class="pill">-</span></div>
+                <div class="action-line"><span class="label">why this path</span><span id="reason">-</span></div>
+                <div class="action-line"><span class="label">analysis time</span><span id="latency">-</span></div>
+              </div>
+            </div>
+            <div class="confidence-card"><span class="card-label">risk continuum</span><div class="continuum"><i class="low"></i><i class="moderate"></i><i class="high"></i><i class="critical"></i></div><div class="continuum-labels"><span>low</span><span>moderate</span><span>high</span><span>critical</span></div><p>Thresholds are defined by the active intervention policy.</p></div>
+          </div>
+
+          <div class="diagnostics-grid">
+            <div class="diagnostic-card"><div class="subheading"><h3>Top contributing factors</h3><span class="field-note" id="explain-method"></span></div><div id="factors"></div></div>
+            <div class="diagnostic-card"><div class="subheading"><h3>Engine signals</h3><span class="field-note">live trace</span></div><div id="signals"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="lower-grid">
+        <section class="panel" id="policy">
+          <div class="panel-heading compact"><div><div class="heading-line"><span class="step">02</span><span class="kicker">intervention policy</span></div><h2>Shape the guardrails</h2></div><span class="panel-icon" aria-hidden="true">&#9881;</span></div>
+          <p class="panel-description">Tune where the system moves from generation to evidence, retrieval, or clarification.</p>
+          <div class="sliders">
+            <label><span><b>low</b> &lt; <strong id="v-low">0.25</strong></span><input type="range" id="t-low" min="0.02" max="0.60" step="0.01" value="0.25" /></label>
+            <label><span><b>moderate</b> &lt; <strong id="v-moderate">0.50</strong></span><input type="range" id="t-moderate" min="0.10" max="0.85" step="0.01" value="0.50" /></label>
+            <label><span><b>high</b> &lt; <strong id="v-high">0.75</strong></span><input type="range" id="t-high" min="0.20" max="0.98" step="0.01" value="0.75" /></label>
+          </div>
+          <label class="select-row"><span>response preference</span><select id="pref"><option>balanced</option><option>aggressive</option><option>permissive</option></select></label>
+          <div class="actions"><button id="btn-policy" class="secondary-button">Apply policy <span aria-hidden="true">&#8594;</span></button><span id="policy-meta" class="action-meta"></span></div>
+          <div class="legend"><div><span class="dot low"></span><b>generate</b><span>low signal</span></div><div><span class="dot moderate"></span><b>ground</b><span>add evidence</span></div><div><span class="dot high"></span><b>retrieve</b><span>find support</span></div><div><span class="dot critical"></span><b>clarify</b><span>pause and ask</span></div></div>
+        </section>
+
+        <section class="panel" id="metrics">
+          <div class="panel-heading compact"><div><div class="heading-line"><span class="step">03</span><span class="kicker">live telemetry</span></div><h2>System pulse</h2></div><div class="heading-actions"><button id="btn-metrics" class="text-button">refresh</button><button id="btn-reset" class="text-button danger">reset</button></div></div>
+          <p class="panel-description">A running view of decisions made by this local service.</p>
+          <div class="metrics"><div class="stat"><b id="m-n">0</b><span>requests</span></div><div class="stat"><b id="m-risk">-</b><span>mean risk</span></div><div class="stat"><b id="m-labeled">0</b><span>labeled</span></div></div>
+          <div class="subheading metric-subheading"><h3>Action distribution</h3><span class="field-note">session total</span></div>
+          <div id="actions-dist"></div>
+          <div id="gate-box" class="gates hidden"></div>
+        </section>
       </div>
-      <h3>Action distribution</h3>
-      <div id="actions-dist"></div>
-      <div id="gate-box" class="gates hidden"></div>
-    </section>
 
-    <!-- -------------------------------------------------------- results -->
-    <section class="panel wide">
-      <h2>4 &middot; Experiment results <span class="hint">from results/raw/*.json</span></h2>
-      <div id="result-files" class="chips"></div>
-      <div id="result-view"><p class="hint">Select a result file.</p></div>
-    </section>
-  </main>
+      <section class="panel results-panel" id="results">
+        <div class="panel-heading compact"><div><div class="heading-line"><span class="step">04</span><span class="kicker">experiment archive</span></div><h2>Read the evidence</h2></div><span class="archive-label">results/raw/*.json</span></div>
+        <p class="panel-description">Compare calibrated runs, safety gates, and category-level performance without leaving the workspace.</p>
+        <div id="result-files" class="chips"></div>
+        <div id="result-view" class="result-view"><div class="empty-state"><span class="empty-icon">+</span><p>Select a result file to inspect its metrics.</p></div></div>
+      </section>
+    </main>
 
-  <footer>
-    PHC-X research build &middot; offline-first &middot; deterministic &middot;
-    seeded &nbsp;|&nbsp; <span id="footer-version"></span>
-  </footer>
+    <footer><span class="footer-brand">PHC/X</span><span>offline-first</span><span>deterministic</span><span>seeded</span><span class="footer-spacer"></span><span id="footer-version"></span></footer>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>
