@@ -89,14 +89,15 @@ on val only), `stats` (paired significance between two checkpoints).
 ## Tests
 
 ```bash
-python3 -m pytest tests -q        # 111 tests, ~40 s
+python3 -m pytest tests -q        # 124 tests, ~50 s
 ```
 
 Covers utils, memory, the five consistency engines, retrieval/features, risk
 + policy, dataset generation/leakage, end-to-end pipeline, API endpoints, the
 browser extension manifest/sources, the **CLI** (every subcommand, against a
-tiny dataset), the **human-validation packet** (blinding + stratification),
-and one regression test per defect fixed in the correctness sweep.
+tiny dataset), the **human-validation packet** (blinding + stratification) and
+the **annotation analysis** (agreement, calibration, false-block rate), and
+one regression test per defect fixed in the correctness sweep.
 
 ## External Evaluation
 
@@ -141,6 +142,32 @@ See `docs/external_evaluation.md` and `docs/human_validation_protocol.md`.
 
 Optional local pilot baselines use Ollama and are explicitly labeled lexical
 approximations, not official SelfCheckGPT or semantic-entropy reproductions.
+
+## Human Validation (pending)
+
+A blinded, stratified annotation packet is prepared, and the analysis pipeline
+has been rehearsed against a **synthetic** annotation round:
+
+```bash
+python3 scripts/prepare_human_validation.py      # blind packet + unblinded key
+python3 scripts/simulate_human_annotations.py     # 1,000 synthetic annotations
+```
+
+The simulator's annotators judge the visible content with surface lexical
+checks plus per-annotator noise — deliberately a different mechanism from
+PHC-X, so the human-vs-model comparison is not circular. It produces
+inter-rater agreement (Krippendorff's alpha, Fleiss' kappa), human-vs-model
+AUROC/AUPRC, calibration by score band, action disagreement and the
+false-block rate.
+
+**This is a dry run, not a study.** Every artifact is marked `synthetic: true`
+and carries a warning; no human labels exist in this repository, and the
+paper describes human validation as pending.
+
+The dry run earned its keep by finding a defect in the rubric: a
+support-based question cannot reach a *reasoning* error whose facts are all
+present, so the protocol now also asks whether the reasoning is sound and
+whether the answer addresses the question.
 
 ---
 

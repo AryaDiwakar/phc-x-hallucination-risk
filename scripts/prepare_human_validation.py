@@ -80,6 +80,22 @@ def _score_rows(rows: List[Dict[str, Any]], checkpoint: Optional[str],
     return out
 
 
+def _stratum_key(row: Dict[str, Any]) -> str:
+    """The category/domain stratum of a candidate.
+
+    For DiaHalu the annotated error type is included: the dialogues are
+    mostly clean turns, so stratifying on the domain alone leaves the
+    annotated error turns -- the only ones a human can say something useful
+    about -- as a rounding error in the sample.
+    """
+    base = str(row.get("category") or row.get("domain") or "unknown")
+    meta = row.get("metadata") or {}
+    errors = row.get("error_types") or meta.get("error_types") or []
+    if errors:
+        base = f"{base}:{','.join(sorted(errors))}"
+    return base
+
+
 def _stratify(candidates: List[Dict[str, Any]], n: int,
               rng: random.Random) -> List[Dict[str, Any]]:
     """Round-robin over the (category/domain, action, band) cells.
@@ -90,8 +106,7 @@ def _stratify(candidates: List[Dict[str, Any]], n: int,
     """
     cells: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = {}
     for c in candidates:
-        key = (str(c.get("category") or c.get("domain") or "unknown"),
-               c["_action_group"], c["_band"])
+        key = (_stratum_key(c), c["_action_group"], c["_band"])
         cells.setdefault(key, []).append(c)
     for bucket in cells.values():
         rng.shuffle(bucket)
@@ -171,11 +186,14 @@ def main() -> int:
             "annotator_label": None,
             "rationale": None,
         })
+        meta = row.get("metadata") or {}
         keys.append({
             "annotation_id": aid,
             "source_dataset": row["source_dataset"],
             "stratum_dimension": row["stratum_dimension"],
             "category_or_domain": row.get("category") or row.get("domain"),
+            "stratum": _stratum_key(row),
+            "error_types": row.get("error_types") or meta.get("error_types") or [],
             "risk_score": row["_risk"],
             "risk_level": row["_level"],
             "action": row["_action"],
