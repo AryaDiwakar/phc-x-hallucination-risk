@@ -90,6 +90,10 @@ def render_macros(stats: Dict[str, Any]) -> str:
         "ufone": _f(uncal.get("f1")),
         "uece": _f(uncal.get("ece")),
         "hauroc": _f(heuristic.get("auroc")),
+        "lookupauroc": _f((stats.get("template_lookup_baseline") or {}).get("auroc")),
+        "lookupauprc": _f((stats.get("template_lookup_baseline") or {}).get("auprc")),
+        "lookupfone": _f((stats.get("template_lookup_baseline") or {}).get("f1")),
+        "ntemplates": (stats.get("leakage_probe") or {}).get("n_distinct_templates", "--"),
         "hauprc": _f(heuristic.get("auprc")),
         "hfone": _f(heuristic.get("f1")),
         "hece": _f(heuristic.get("ece")),
@@ -120,13 +124,68 @@ def render_macros(stats: Dict[str, Any]) -> str:
         "diaauroc": _f(dia.get("auroc")),
         "diastr": _f((external.get("diahalu", {}).get("stratified_by_history_length") or {}).get("pooled_auroc")),
         "halun": external.get("halueval_dialogue", {}).get("n_rows", "--"),
-        "haluauroc": _f(halu.get("auroc")),
-        "cfan": external.get("halueval_counterfactual", {}).get("n_rows", "--"),
+        "haluauroc": _f(halu.get("auroc")),        "cfan": external.get("halueval_counterfactual", {}).get("n_rows", "--"),
         "cfauroc": _f((external.get("halueval_counterfactual", {}).get("model", {}) or {}).get("metrics", {}).get("auroc")),
         "cfaurocmin": _f(((external.get("halueval_counterfactual", {}).get("model", {}) or {}).get("auroc_ci", {}) or {}).get("lo")),
         "cfaurocmax": _f(((external.get("halueval_counterfactual", {}).get("model", {}) or {}).get("auroc_ci", {}) or {}).get("hi")),
     }
+    values.update(_leak_control_macros(stats))
+    values.update(_stress_macros(stats))
     return "".join(_macro(name, value) for name, value in values.items())
+
+
+def _leak_control_macros(stats: Dict[str, Any]) -> Dict[str, Any]:
+    """Macros for the leak-controlled benchmark comparison."""
+    lc = stats.get("leak_control") or {}
+    data = lc.get("dataset") or {}
+    leak = data.get("prompt_template_leakage") or {}
+    model = lc.get("model") or {}
+    lookup = lc.get("template_lookup_baseline") or {}
+    ablation = dict(lc.get("ablation_ranking") or [])
+    bench = lc.get("benchmark") or {}
+    gates = bench.get("gates") or {}
+    return {
+        "lcnrows": data.get("n_rows", "--"),
+        "lctemplates": (lc.get("leakage_probe") or {}).get("n_distinct_templates", "--"),
+        "lcleakauc": _f((lc.get("leakage_probe") or {}).get("template_lookup_auroc")),
+        "lcleakfrac": _f((lc.get("leakage_probe") or {}).get("frac_templates_uniquely_categorised")),
+        "lcauc": _f(model.get("auroc")),
+        "lcauprc": _f(model.get("auprc")),
+        "lcfone": _f(model.get("f1")),
+        "lclookupauc": _f(lookup.get("auroc")),
+        "lcprompt": _f(ablation.get("A_prompt_only")),
+        "lchistory": _f(ablation.get("C_history_provenance")),
+        "lccontradiction": _f(ablation.get("D_history_provenance_contradiction")),
+        "lcevidence": _f(ablation.get("E_history_provenance_evidence")),
+        "lcfull": _f(ablation.get("F_full")),
+        "lccoverage": _f(gates.get("coverage")),
+        "lcgatestatus": _esc(bench.get("gate_status", "--")),
+    }
+
+
+def _stress_macros(stats: Dict[str, Any]) -> Dict[str, Any]:
+    """Macros for the cross-label and leave-one-category-out stress tests."""
+    cross = stats.get("cross_label_generalization") or {}
+    gold = cross.get("train_label_gold__test_label_verified") or {}
+    ver = cross.get("train_label_verified__test_label_gold") or {}
+    loco = stats.get("leave_one_category_out") or {}
+    per = loco.get("per_category") or []
+    scored = [c for c in per if c.get("auroc") is not None]
+    worst = min(scored, key=lambda c: c["auroc"], default=None)
+    best = max(scored, key=lambda c: c["auroc"], default=None)
+    return {
+        "crossgold": _f(gold.get("auroc_vs_other_source")),
+        "crossgoldown": _f(gold.get("auroc_vs_own_source")),
+        "crossver": _f(ver.get("auroc_vs_other_source")),
+        "crossverown": _f(ver.get("auroc_vs_own_source")),
+        "locomean": _f(loco.get("mean_auroc")),
+        "locostd": _f(loco.get("std_auroc")),
+        "locon": loco.get("n_categories", "--"),
+        "locoworst": _f(worst.get("auroc")) if worst else "--",
+        "locoworstcat": _esc(worst.get("category", "--")) if worst else "--",
+        "locobest": _f(best.get("auroc")) if best else "--",
+        "locobestcat": _esc(best.get("category", "--")) if best else "--",
+    }
 
 
 def _main_rows(stats: Dict[str, Any]) -> List[str]:
@@ -137,6 +196,8 @@ def _main_rows(stats: Dict[str, Any]) -> List[str]:
         rows.append(("Logistic regression (calibrated)", lr))
     if stats.get("heuristic_baseline"):
         rows.append(("Heuristic (no training)", stats["heuristic_baseline"]))
+    if stats.get("template_lookup_baseline"):
+        rows.append(("Template lookup (leakage probe)", stats["template_lookup_baseline"]))
     return [
         f"{_esc(name)} & {_f(row.get('auroc'))} & {_f(row.get('auprc'))} & "
         f"{_f(row.get('f1'))} & {_f(row.get('precision'))} & {_f(row.get('recall'))} & "
@@ -200,6 +261,38 @@ def render_tables(stats: Dict[str, Any]) -> str:
                    "\\caption{External evaluation without retraining or recalibration.}\n\\label{tab:external}\n"
                    "\\small\n\\begin{tabular}{lrrrr}\n\\toprule\nDataset & $n$ & AUROC & 95\\% CI & AUPRC \\\\n\\midrule\n" +
                    "\n".join(ext_rows) + "\n\\bottomrule\n\\end{tabular}\n\\end{table}\n")
+    lc = stats.get("leak_control") or {}
+    if lc:
+        main_probe = stats.get("leakage_probe") or {}
+        lc_probe = lc.get("leakage_probe") or {}
+        main_ab = dict(stats.get("ablation_ranking") or [])
+        lc_ab = dict(lc.get("ablation_ranking") or [])
+        rows = [
+            ("Templates identifying one category",
+             f"{_f((main_probe.get('frac_templates_uniquely_categorised') or 0.0) * 100, 1)}\\%",
+             f"{_f((lc_probe.get('frac_templates_uniquely_categorised') or 0.0) * 100, 1)}\\%"),
+            ("Template lookup AUROC",
+             _f((stats.get("template_lookup_baseline") or {}).get("auroc")),
+             _f(lc_probe.get("template_lookup_auroc"))),
+            ("A: prompt only", _f(main_ab.get("A_prompt_only")),
+             _f(lc_ab.get("A_prompt_only"))),
+            ("C: + history, provenance", _f(main_ab.get("C_history_provenance")),
+             _f(lc_ab.get("C_history_provenance"))),
+            ("D: + contradiction", _f(main_ab.get("D_history_provenance_contradiction")),
+             _f(lc_ab.get("D_history_provenance_contradiction"))),
+            ("E: + evidence", _f(main_ab.get("E_history_provenance_evidence")),
+             _f(lc_ab.get("E_history_provenance_evidence"))),
+            ("F: full", _f(main_ab.get("F_full")), _f(lc_ab.get("F_full"))),
+        ]
+        body = "\n".join(
+            f"{_esc(name)} & {a} & {b} " + r"\\" for name, a, b in rows
+        )
+        out.append("\\begin{table}[t]\n\\centering\n"
+                   "\\caption{The same benchmark with and without the prompt leak.}\n"
+                   "\\label{tab:leakcontrol}\n\\small\n"
+                   "\\begin{tabular}{lrr}\n\\toprule\n"
+                   "Quantity & PHC-Conversation & leak-controlled \\\\\n\\midrule\n" +
+                   body + "\n\\bottomrule\n\\end{tabular}\n\\end{table}\n")
     # A few compact table headers use the readable ``\\n`` marker above;
     # convert it to real line breaks before writing TeX.
     return "".join(out).replace(r"\\n", r"\\" + "\n")

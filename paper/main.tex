@@ -38,9 +38,18 @@ transparent heuristic baseline, with multi-seed AUROC
 \msmean{}$\pm$\msstd{} (seeds \msses). Action-level safety gates
 \gatestatus{}: generated turns carry hallucination rate \riskgenerated{}
 against a base rate of \riskoverall, while \caught{} of all positives are
-caught and coverage is \coverage. Ablations attribute most of the gain to
- history, provenance, and evidence features (prompt-only AUROC \promptauroc). The
-system ships end-to-end: CLI, REST API, browser extension, and dashboard.
+caught and coverage is \coverage. Because the benchmark is synthetic, we
+measure the obvious artifact rather than assume it away: a lookup table
+over prompt templates reaches AUROC \lookupauroc{} without reading the
+conversation, and on a leak-controlled variant of the benchmark---one shared
+prompt pool, so the question cannot identify the risk type---the
+prompt-only ablation collapses to \lcprompt{} (chance) while the full model
+holds \lcauc{}. The signal is in the conversation, not the wording. On
+external data the framework transfers its context-coverage capability
+(AUROC \cfauroc{} on a HaluEval counterfactual) but not its discrimination
+of already-generated responses. Ablations attribute most of the gain to
+ history, provenance, and evidence features (prompt-only AUROC \promptauroc).
+The system ships end-to-end: CLI, REST API, browser extension, and dashboard.
 \end{abstract}
 
 \section{Introduction}
@@ -213,6 +222,55 @@ $\text{positives caught}\ge\caughtmin$. Latency is measured locally on a
 warm pipeline: median \latmedian{} ms, p95 \lathigh{} ms (including SHAP
 attribution).
 
+\subsection{Leak control}
+\label{sec:leakcontrol}
+PHC-Conversation is synthetic, so a benchmark artifact is a live risk and we
+measure it rather than assume it away. Each category draws its prompts from
+its own template pool, which means the wording of the question identifies
+the risk category, and the categories have very different base rates. A
+lookup table over prompt templates, fit on the training split and never
+reading the conversation, therefore reaches AUROC \lookupauroc{} on the test
+split.
+
+To measure what the framework itself contributes, we build a
+\emph{leak-controlled} variant: the same generator, the same families, the
+same label logic and the same family split, but every category draws its
+prompt from one shared pool, so the prompt carries no category information
+(\lctemplates{} templates, none of them uniquely categorised). The
+template lookup table drops to \lcleakauc{}. We exclude the four categories
+whose signal genuinely lives in the question---a presupposition, a
+referential ambiguity, a freshness cue and the benign control---because no
+re-wording can move those into the conversation; the variant therefore
+contains the seven context-borne categories (\lcnrows{} rows).
+
+The result is the cleanest statement of the contribution we can make.
+With a prompt that says nothing, the prompt-only ablation collapses from
+AUROC \promptauroc{} to \lcprompt{}---chance---confirming that the original
+number was an artifact. The full model moves only from \auroc{} to
+\lcauc{}, and the ordering of the ablations becomes interpretable:
+history and provenance reach \lchistory{}, contradiction adds
+\lccontradiction{}, and evidence coverage is the single largest
+contributor at \lcevidence{} (Table~\ref{tab:leakcontrol}). The action-level
+gates still report \lcgatestatus{} with coverage \lccoverage.
+
+\subsection{Generalisation stress tests}
+Two further tests probe what the model has actually learned.
+\emph{Cross-label source}: PHC-Conversation carries two independent labels,
+\texttt{label\_gold} (by construction) and \texttt{label\_verified} (from the
+post-hoc verifier), which agree on only \agreement{} of the rows and so
+behave like two annotators. Training on one and scoring against the other
+gives AUROC \crossgold{} (gold$\rightarrow$verified, against \crossgoldown{}
+against its own source) and \crossver{} (verified$\rightarrow$gold, against
+\crossverown{}): the model keeps a substantial part of its discrimination
+against a label source it has never seen, which is evidence that it learned
+something about the conversation rather than about one particular labeller.
+\emph{Leave-one-category-out}: training on ten risk types and testing on the
+eleventh gives a mean AUROC of \locomean{}$\pm$\locostd{} over \locon{}
+categories, ranging from \locobest{} (\locobestcat) to \locoworst{}
+(\locoworstcat)---the framework transfers to risk types it has never seen
+for most categories, and fails on the one whose signal is specific to having
+seen it.
+
 \section{Results}
 \input{tables.tex}
 
@@ -232,6 +290,20 @@ AUPRC \hauprc{} / F1 \hfone{} for the heuristic baseline, and AUROC
 Calibration cuts ECE from \uece{} to \ece{} (Table~\ref{tab:main}).
 Multi-seed runs give \msmean{}$\pm$\msstd.
 
+\textbf{Leakage probe (reported because it is unflattering).} On
+PHC-Conversation a prompt template identifies its risk category uniquely:
+all \ntemplates{} templates in the test split belong to exactly one
+category, and the categories have very different base rates. A lookup table
+that memorizes the training base rate of each prompt template, and never
+sees the conversation at all, already reaches AUROC \lookupauroc{} /
+AUPRC \lookupauprc{} / F1 \lookupfone{}. That is the number a
+hallucination detector has to beat: it is what "reading the benchmark"
+looks like. PHC-X is \auroc{} against it, and the whole margin is
+attributable to the conversation state and the evidence rather than to the
+wording of the question. We report the probe in every table rather than
+leaving a reviewer to discover it, and we quantify the leak directly in
+Section~\ref{sec:leakcontrol}.
+
 \textbf{Significance (honestly reported).} The model and heuristic disagree
 on \ndiscordant{} test decisions (McNemar exact $p=$ \pmcnemar), yet their
 AUROCs are not significantly different under DeLong ($p=$ \pdelong) because
@@ -242,8 +314,12 @@ cherry-pick.
 history and consistency engines improve the score; the
 history+provenance+evidence group reaches the best single configuration
 (\evidenceauroc); the full black-box model scores \auroc
-(Table~\ref{tab:ablation}).
-Conversation context---not the prompt alone---carries most of the signal.
+(Table~\ref{tab:ablation}). The prompt-only figure is an artifact of the
+synthetic generator rather than a measure of what the prompt carries, which
+is why we report it against the template-lookup probe and re-measure the
+whole ladder on the leak-controlled variant
+(Section~\ref{sec:leakcontrol}): there the prompt-only ablation falls to
+\lcprompt{} and the full model holds \lcauc{}.
 
 \textbf{Intervention behaviour.} The tuned policy blocks \blockedshare{} of turns
 (coverage \coverage) while catching \caught{} of all positive (hallucination-prone)

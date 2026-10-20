@@ -37,6 +37,7 @@ def cmd_build_dataset(args: argparse.Namespace) -> int:
         n_families=int(args.families or 240),
         seed=int(args.seed if args.seed is not None else cfg.get("seed", 42)),
         ratios=tuple(cfg.get("split", {}).get("ratios", [0.7, 0.15, 0.15])),
+        prompt_mode=str(cfg.get("prompt_mode", "category")),
     )
     _print_json(summary)
     return 0 if summary.get("leakage_passed", True) else 1
@@ -260,6 +261,38 @@ def cmd_paper(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_stress(args: argparse.Namespace) -> int:
+    """Generalisation stress tests for the risk model."""
+    from pathlib import Path
+
+    from phcx.experiments.stress import (
+        run_cross_label_generalization,
+        run_leave_one_category_out,
+    )
+    from phcx.experiments.train import load_config
+
+    cfg = load_config(args.config)
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    payload: Dict[str, Any] = {}
+
+    if args.which in ("cross-label", "both"):
+        payload["cross_label"] = run_cross_label_generalization(
+            cfg, data_dir=args.data,
+            out_path=out_dir / "cross_label_generalization.json",
+            seed=args.seed, show_progress=not args.quiet,
+        )
+    if args.which in ("leave-one-category-out", "both"):
+        payload["leave_one_category_out"] = run_leave_one_category_out(
+            cfg, data_dir=args.data,
+            out_path=out_dir / "leave_one_category_out.json",
+            seed=args.seed, show_progress=not args.quiet,
+        )
+    if args.json:
+        _print_json(payload)
+    return 0
+
+
 def cmd_external_eval(args: argparse.Namespace) -> int:
     from phcx.experiments.external import evaluate_external, load_external_rows
 
@@ -446,6 +479,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--llm-samples", type=int, default=3)
     p.add_argument("--llm-limit", type=int, default=50)
     add(p, cmd_external_eval)
+
+    # stress tests
+    p = sub.add_parser(
+        "stress",
+        help="generalisation stress tests: cross-label-source and leave-one-category-out",
+    )
+    p.add_argument("--config", default="configs/train.yaml")
+    p.add_argument("--data", default="data/phc_conversation")
+    p.add_argument("--which", default="both",
+                   choices=["cross-label", "leave-one-category-out", "both"])
+    p.add_argument("--out-dir", default="results/raw")
+    p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--json", action="store_true")
+    p.add_argument("--quiet", action="store_true")
+    add(p, cmd_stress)
 
     # serve
     p = sub.add_parser("serve", help="run the FastAPI service")

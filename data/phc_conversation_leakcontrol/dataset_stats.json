@@ -1,0 +1,41 @@
+{
+  "sizes": {
+    "train": 491,
+    "val": 102,
+    "test": 107
+  },
+  "label_rate": {
+    "train": 0.6354,
+    "val": 0.549,
+    "test": 0.6729
+  },
+  "categories": {
+    "train": [
+      "contradictory_context",
+      "entity_ambiguity",
+      "evidence_conflict",
+      "long_context_degradation",
+      "model_memory_contamination",
+      "supported_context",
+      "unsupported_context"
+    ],
+    "val": [
+      "contradictory_context",
+      "entity_ambiguity",
+      "evidence_conflict",
+      "long_context_degradation",
+      "model_memory_contamination",
+      "supported_context",
+      "unsupported_context"
+    ],
+    "test": [
+      "contradictory_context",
+      "entity_ambiguity",
+      "evidence_conflict",
+      "long_context_degradation",
+      "model_memory_contamination",
+      "supported_context",
+      "unsupported_context"
+    ]
+  }
+}

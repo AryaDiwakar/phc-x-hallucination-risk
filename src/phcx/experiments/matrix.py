@@ -54,6 +54,31 @@ class DatasetMatrix:
             names.extend(FEATURE_GROUPS.get(g, []))
         return self.subset(names)
 
+    def rows(self, mask: Sequence[bool]) -> "DatasetMatrix":
+        """A row subset, keeping the feature matrix and metadata aligned."""
+        idx = [i for i, keep in enumerate(mask) if keep]
+        return DatasetMatrix(
+            X=self.X[idx] if len(idx) else self.X[:0],
+            y=self.y[idx] if len(idx) else self.y[:0],
+            feature_names=list(self.feature_names),
+            sample_ids=[self.sample_ids[i] for i in idx] if len(self.sample_ids) == len(self.y) else list(self.sample_ids),
+            categories=[self.categories[i] for i in idx] if len(self.categories) == len(self.y) else list(self.categories),
+            family_ids=[self.family_ids[i] for i in idx] if len(self.family_ids) == len(self.y) else list(self.family_ids),
+            heuristic=self.heuristic[idx] if (self.heuristic is not None and len(self.heuristic) == len(self.y)) else self.heuristic,
+        )
+
+    def with_labels(self, y: np.ndarray) -> "DatasetMatrix":
+        """The same features under a different labelling."""
+        return DatasetMatrix(
+            X=self.X,
+            y=np.asarray(y, dtype=int),
+            feature_names=list(self.feature_names),
+            sample_ids=list(self.sample_ids),
+            categories=list(self.categories),
+            family_ids=list(self.family_ids),
+            heuristic=self.heuristic,
+        )
+
 
 def load_jsonl(path: str | Path) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []

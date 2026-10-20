@@ -45,6 +45,32 @@ CATEGORIES = [
 
 _TURNS = ("user", "assistant")
 
+#: Categories whose risk signal lives in the conversation state and the
+#: evidence rather than in the wording of the prompt.  The leak-controlled
+#: benchmark is built from these with one shared prompt pool, so that the
+#: prompt cannot identify the risk type.  The four excluded categories are
+#: excluded on purpose: a presupposition, a referential ambiguity and a
+#: freshness cue *are* properties of the question, and no amount of
+#: re-wording can move them into the context.
+CATEGORIES_CONTEXT_BORNE = [
+    "supported_context",
+    "unsupported_context",
+    "contradictory_context",
+    "model_memory_contamination",
+    "entity_ambiguity",
+    "evidence_conflict",
+    "long_context_degradation",
+]
+
+#: The prompt pool of the leak-controlled benchmark.  Every category draws
+#: from the same pool, so a lookup table over prompt templates learns
+#: nothing: after masking the entity slot all of these are one template.
+NEUTRAL_PROMPTS = [
+    "What should you say next about the {topic} project?",
+    "Please answer the question about the {topic} project.",
+    "Continue the conversation about the {topic} project.",
+]
+
 
 def _u(text: str) -> Dict[str, str]:
     return {"role": "user", "content": text}
@@ -188,24 +214,32 @@ class PHCConversationGenerator:
         n_families: int = 120,
         long_context_extra_turns: Tuple[int, ...] = (30, 45, 60),
         carefulness: float = 0.5,
+        prompt_mode: str = "category",
     ):
         self.samples_per_category = samples_per_category
         self.seed = seed
         self.families = build_families(n_families, seed=seed)
         self.long_context_extra_turns = long_context_extra_turns
         self.assistant = SimulatedAssistant(carefulness=carefulness, seed=seed)
+        self.prompt_mode = prompt_mode
 
     # ------------------------------------------------------------------ api
     def generate(self) -> List[Dict[str, Any]]:
         out: List[Dict[str, Any]] = []
         rng = random.Random(self.seed)
-        for cat in CATEGORIES:
+        categories = (CATEGORIES if self.prompt_mode == "category"
+                      else CATEGORIES_CONTEXT_BORNE)
+        for cat in categories:
             k = self.samples_per_category
             for i in range(k):
                 fam = self.families[rng.randrange(len(self.families))]
                 case = self._build(cat, fam, rng)
                 if case is None:
                     continue
+                if self.prompt_mode == "neutral":
+                    # the prompt is drawn from a pool shared by every
+                    # category, so it cannot identify the risk type
+                    case.prompt = rng.choice(NEUTRAL_PROMPTS).format(topic=fam.topic)
                 out.append(self._package(case, fam, cat, rng))
         rng.shuffle(out)
         for i, r in enumerate(out):

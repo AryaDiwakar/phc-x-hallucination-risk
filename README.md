@@ -26,6 +26,53 @@ N Sai Baba (23BDS0019).
 | F1 @ tuned threshold | **0.951** (P 0.942 / R 0.961) | 0.716 |
 | ECE (10-bin) | **0.048** (0.107 uncalibrated) | 0.252 |
 | Multi-seed AUROC | 0.986 ± 0.000 (seeds 42 / 123 / 2024) | — |
+| *Template lookup (leakage probe)* | *0.808* | *—* |
+
+**The leakage probe.** Each category draws its prompts from its own
+template pool, so the wording of the question identifies the risk category.
+A lookup table that memorizes each template's training base rate — and never
+reads the conversation — already reaches **AUROC 0.808**. That is the number
+a hallucination detector has to beat, and we report it in every table rather
+than leave a reviewer to find it.
+
+**The leak-controlled variant.** Same generator, same families, same label
+logic, same family split, but every category draws its prompt from **one
+shared pool**, so the prompt cannot identify the risk type (the four
+prompt-borne categories — presupposition, referential ambiguity, freshness
+cue, benign control — are excluded, because no re-wording moves those into
+the conversation):
+
+```bash
+phc build-dataset --config configs/dataset_leakcontrol.yaml \
+  --out data/phc_conversation_leakcontrol
+phc train --config configs/train_leakcontrol.yaml \
+  --data data/phc_conversation_leakcontrol --seeds 42,123,2024
+phc ablation --config configs/ablation.yaml \
+  --data data/phc_conversation_leakcontrol
+```
+
+| | PHC-Conversation | leak-controlled |
+|---|---:|---:|
+| Templates identifying one category | 84.2 % | 0.0 % |
+| Template lookup AUROC | 0.808 | 0.635 |
+| A: prompt only | 0.853 | **0.485** (chance) |
+| E: + history, provenance, evidence | 0.984 | 0.965 |
+| F: full | 0.986 | **0.963** |
+
+The prompt-only ablation collapses to chance while the full model barely
+moves. The original 0.853 was an artifact; the framework's discrimination
+was already coming from the conversation.
+
+**Generalisation stress tests** (`phc stress`):
+
+- *Cross-label source* — training on `label_gold` and scoring against
+  `label_verified` gives AUROC **0.778** (against 0.983 for its own source),
+  and the reverse gives **0.694** (against 0.989). The model keeps much of
+  its discrimination against a label source it has never seen.
+- *Leave-one-category-out* — training on ten risk types and testing on the
+  eleventh gives mean AUROC **0.853 ± 0.192** over 9 categories, from
+  1.000 (`entity_ambiguity`) down to 0.377 (`unsupported_context`, the one
+  whose signal is specific to having seen it).
 
 Ablation AUROC: `A_prompt_only` 0.853 → `B` 0.853 → `C` 0.887 → `D` 0.901 →
 `E_history_provenance_evidence` 0.984 → `F_full` 0.986.
@@ -37,7 +84,8 @@ overlap — we report both).
 The cost-sensitive threshold search is stable across seeds: multi-seed F1 is
 0.943 ± 0.009 and the operating point varies by less than 0.07. The coverage
 requirement (≥ 50 % of turns still answered) is imposed on the blocking
-cut-point during the validation-only threshold search.
+cut-point during the validation-only threshold search, with a one-sided 95 %
+margin so that it holds on a fresh sample.
 
 Latency: ~21 ms median / 23 ms p95 per analysis steady-state (SHAP warm-up is
 done during API start-up; machine-local measurement).
@@ -89,7 +137,7 @@ on val only), `stats` (paired significance between two checkpoints).
 ## Tests
 
 ```bash
-python3 -m pytest tests -q        # 124 tests, ~50 s
+python3 -m pytest tests -q        # 131 tests, ~75 s
 ```
 
 Covers utils, memory, the five consistency engines, retrieval/features, risk

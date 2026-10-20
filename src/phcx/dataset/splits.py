@@ -169,6 +169,58 @@ def leakage_report(
     return report
 
 
+def prompt_template_leakage(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    """How much does the *prompt* identify the risk category?
+
+    On PHC-Conversation each category draws its prompts from its own
+    template pool, so the prompt names the category and therefore the label's
+    base rate.  This measures the leak instead of assuming it away: the
+    fraction of prompt templates that belong to exactly one category, and
+    the accuracy of a lookup table that memorizes each template's base rate.
+    """
+    from ..experiments.metrics import prompt_template
+
+    template_cats: Dict[str, set] = {}
+    template_labels: Dict[str, List[int]] = {}
+    for r in rows:
+        t = prompt_template(str(r.get("prompt", "")))
+        template_cats.setdefault(t, set()).add(str(r.get("category", "unknown")))
+        template_labels.setdefault(t, []).append(int(r.get("label", 0) or 0))
+    n_templates = len(template_cats)
+    single = sum(1 for c in template_cats.values() if len(c) == 1)
+    rates = {t: sum(v) / len(v) for t, v in template_labels.items() if v}
+    y = [int(r.get("label", 0) or 0) for r in rows]
+    preds = [rates.get(prompt_template(str(r.get("prompt", ""))), 0.0) for r in rows]
+    # rank-based AUROC of the lookup table
+    order = sorted(range(len(y)), key=lambda i: preds[i])
+    ranks = [0.0] * len(y)
+    i = 0
+    while i < len(order):
+        j = i
+        while j + 1 < len(order) and preds[order[j + 1]] == preds[order[i]]:
+            j += 1
+        avg = (i + j) / 2.0 + 1.0
+        for k in range(i, j + 1):
+            ranks[order[k]] = avg
+        i = j + 1
+    n_pos = sum(y)
+    n_neg = len(y) - n_pos
+    auroc = 0.5
+    if n_pos and n_neg:
+        s = sum(r for r, l in zip(ranks, y) if l == 1)
+        auroc = (s - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg)
+    return {
+        "n_templates": n_templates,
+        "templates_with_one_category": single,
+        "frac_templates_uniquely_categorised": round(single / n_templates, 5) if n_templates else 0.0,
+        "template_lookup_auroc": round(float(auroc), 5),
+        "note": (
+            "a lookup table over prompt templates, fit on this split, reaches "
+            "this AUROC without ever reading the conversation"
+        ),
+    }
+
+
 def write_splits(
     splits: Dict[str, List[Dict[str, Any]]],
     out_dir: str | Path,

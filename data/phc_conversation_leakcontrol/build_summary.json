@@ -1,0 +1,52 @@
+{
+  "n_rows": 700,
+  "n_families": 230,
+  "seed": 42,
+  "ratios": [
+    0.7,
+    0.15,
+    0.15
+  ],
+  "prompt_mode": "neutral",
+  "categories": [
+    "contradictory_context",
+    "entity_ambiguity",
+    "evidence_conflict",
+    "long_context_degradation",
+    "model_memory_contamination",
+    "supported_context",
+    "unsupported_context"
+  ],
+  "split_sizes": {
+    "train": 491,
+    "val": 102,
+    "test": 107
+  },
+  "label_rate": {
+    "train": 0.6354,
+    "val": 0.549,
+    "test": 0.6729
+  },
+  "label_source": "union(label_gold, label_verified)",
+  "gold_verified_agreement": 0.6457,
+  "prompt_template_leakage": {
+    "n_templates": 3,
+    "templates_with_one_category": 0,
+    "frac_templates_uniquely_categorised": 0.0,
+    "template_lookup_auroc": 0.53094,
+    "note": "a lookup table over prompt templates, fit on this split, reaches this AUROC without ever reading the conversation"
+  },
+  "leakage_passed": true,
+  "leakage_checks": {
+    "duplicate_prompts": 0,
+    "semantic_duplicates": 0,
+    "family_overlap": 0,
+    "evidence_overlap": 0,
+    "variant_crossing": 0
+  },
+  "paths": {
+    "train": "data/phc_conversation_leakcontrol/train.jsonl",
+    "val": "data/phc_conversation_leakcontrol/val.jsonl",
+    "test": "data/phc_conversation_leakcontrol/test.jsonl"
+  }
+}

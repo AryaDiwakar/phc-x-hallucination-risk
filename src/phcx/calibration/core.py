@@ -283,6 +283,12 @@ class ThresholdSearchResult:
     details: Dict[str, Any] = field(default_factory=dict)
 
 
+#: one-sided 95% normal quantile: the coverage constraint must hold with
+#: 95% confidence on a fresh sample of the same size, not merely touch the
+#: limit on the split it was fitted on.
+_COVERAGE_Z = 1.645
+
+
 def enforce_min_coverage(
     thresholds: Dict[str, float],
     scores: Sequence[float],
@@ -297,13 +303,12 @@ def enforce_min_coverage(
     separate *decision* cut-point; this constrains the blocking one, which is
     what the deployment gate is about.
 
-    The requirement is imposed on the validation split with a one-standard-
-    error safety margin, so that it still holds on a fresh sample of the same
+    The requirement is imposed on the validation split with a one-sided 95%
+    safety margin, so that it still holds on a fresh sample of the same
     size: the split is a sample of deployment traffic, and a constraint that
     merely touches its limit on one split is satisfied by luck rather than by
-    construction.
-
-    Returns the adjusted thresholds together with the achieved coverage.
+    construction.  The margin is the standard error of a binomial proportion
+    at the limit, scaled by 1.645 (the one-sided 95% normal quantile).
     """
     s = np.asarray(scores, dtype=float).reshape(-1)
     thr = dict(thresholds)
@@ -312,8 +317,8 @@ def enforce_min_coverage(
 
     required = float(min_coverage)
     if margin_stderr and s.size > 1:
-        # binomial standard error of a proportion at the limit
-        required += float(np.sqrt(0.25 / s.size))
+        # one-sided 95% margin on a binomial proportion at the limit
+        required += _COVERAGE_Z * float(np.sqrt(0.25 / s.size))
 
     high = float(thr.get("high", 0.75))
     coverage = float((s < high).mean())

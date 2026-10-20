@@ -21,7 +21,11 @@ from ..features import FEATURE_GROUPS
 from ..features.engine import USE_FLAG_GROUPS
 from ..risk import RiskModel
 from .matrix import DatasetMatrix, featurize_splits, load_splits
-from .metrics import classification_metrics, per_category_metrics
+from .metrics import (
+    classification_metrics,
+    per_category_metrics,
+    template_lookup_scores,
+)
 
 MODEL_NAMES = ("lr", "rf", "xgb", "lgbm", "mlp", "neural")
 NON_MODEL_GROUPS = [g for g in FEATURE_GROUPS if g != "model"]
@@ -115,6 +119,7 @@ def evaluate(
     matrix: DatasetMatrix,
     threshold: float = 0.5,
     with_categories: bool = True,
+    extra_scores: Optional[Dict[str, np.ndarray]] = None,
 ) -> Dict[str, Any]:
     p_raw = model.predict_proba(matrix.X, calibrated=False)
     p_cal = model.predict_proba(matrix.X, calibrated=True)
@@ -131,6 +136,9 @@ def evaluate(
     if matrix.heuristic is not None:
         out["heuristic_baseline"] = classification_metrics(matrix.y, matrix.heuristic,
                                                             threshold)
+    for name, scores in (extra_scores or {}).items():
+        if scores is not None and len(scores) == matrix.n_rows:
+            out[name] = classification_metrics(matrix.y, scores, threshold)
     out["reliability"] = reliability_bins(p_cal, matrix.y)
     return out
 
@@ -165,6 +173,12 @@ def run_training(
     train, val, test = matrices.get("train"), matrices.get("val"), matrices.get("test")
     if train is None or test is None:
         raise ValueError("train and test splits are required")
+
+    # The leakage probe: a lookup table over the *prompt template*, fit on
+    # the training split only.  It learns nothing about hallucination -- only
+    # "prompts that look like this are positive X% of the time" -- so a
+    # trained model has to clearly beat it to be doing anything.
+    template_lookup = template_lookup_scores(splits.get("train", []), splits.get("test", []))
 
     model, p_val_raw, p_val_cal = train_model(
         train, val, model_name=model_name, seed=seed, hyper=hyper,
@@ -201,7 +215,8 @@ def run_training(
         "threshold": threshold,
         "thresholds": thresholds if thresholds is not None else None,
         "threshold_objective": threshold_search.objective if threshold_search else None,
-        "test": evaluate(model, test, threshold),
+        "test": evaluate(model, test, threshold,
+                         extra_scores={"template_lookup_baseline": template_lookup}),
         "calibration": None,
         "feature_importance": dict(
             sorted(model.feature_importance().items(),

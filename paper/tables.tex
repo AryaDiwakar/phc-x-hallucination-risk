@@ -11,6 +11,7 @@ PHC-X (RF, calibrated) & 0.986 & 0.992 & 0.951 & 0.942 & 0.961 & 0.048 & 0.050 \
 PHC-X (RF, uncalibrated) & 0.986 & 0.992 & 0.935 & 0.893 & 0.980 & 0.107 & 0.059 \\
 Logistic regression (calibrated) & 0.963 & 0.978 & 0.910 & 0.842 & 0.990 & 0.072 & 0.077 \\
 Heuristic (no training) & 0.727 & 0.852 & 0.716 & 0.851 & 0.618 & 0.252 & 0.248 \\
+Template lookup (leakage probe) & 0.808 & 0.858 & 0.844 & 0.741 & 0.980 & 0.050 & 0.162 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -65,10 +66,10 @@ A & Prompt only & 0.853 & -0.133 \\
 \toprule
 Gate & Value & Status \\
 \midrule
-Coverage & 0.515 & PASS \\
+Coverage & 0.528 & PASS \\
 Positives caught & 0.961 & PASS \\
 Safety margin & 0.593 & -- \\
-Blocked share & 0.484 & -- \\
+Blocked share & 0.472 & -- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -84,6 +85,25 @@ Dataset & $n$ & AUROC & 95\% CI & AUPRC \\
 DiaHalu (turn-aligned) & 5923 & 0.429 & 0.403--0.456 & 0.071 \\
 HaluEval pair (purity check) & 20000 & 0.500 & 0.493--0.508 & 0.500 \\
 HaluEval counterfactual & 20000 & 0.709 & 0.702--0.716 & 0.659 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{table}[t]
+\centering
+\caption{The same benchmark with and without the prompt leak.}
+\label{tab:leakcontrol}
+\small
+\begin{tabular}{lrr}
+\toprule
+Quantity & PHC-Conversation & leak-controlled \\
+\midrule
+Templates identifying one category & 84.2\% & 0.0\% \\
+Template lookup AUROC & 0.808 & 0.635 \\
+A: prompt only & 0.853 & 0.485 \\
+C: + history, provenance & 0.887 & 0.800 \\
+D: + contradiction & 0.901 & 0.808 \\
+E: + evidence & 0.984 & 0.965 \\
+F: full & 0.986 & 0.963 \\
 \bottomrule
 \end{tabular}
 \end{table}

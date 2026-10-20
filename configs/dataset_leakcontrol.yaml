@@ -1,0 +1,38 @@
+# PHC-Conversation, leak-controlled variant (Section 5.1 / spec §21)
+#
+# The standard PHC-Conversation benchmark lets the *prompt* identify the risk
+# category: each category draws from its own template pool, and a lookup
+# table over prompt templates reaches AUROC 0.808 without ever reading the
+# conversation.  This variant removes that leak, so that any discrimination
+# has to come from the conversation state and the evidence.
+#
+# Two changes, and only two:
+#   1. every category draws its prompt from one shared pool, so the prompt
+#      carries no category information;
+#   2. only the context-borne categories are included, because a
+#      presupposition, a referential ambiguity and a freshness cue *are*
+#      properties of the question -- they cannot be moved into the context.
+#
+# The risk, the label logic, the families and the family split are unchanged.
+name: phc-conversation-leakcontrol
+version: "1.0"
+seed: 42
+synthetic: true
+prompt_mode: neutral
+
+categories:
+  - supported_context
+  - unsupported_context
+  - contradictory_context
+  - model_memory_contamination
+  - entity_ambiguity
+  - evidence_conflict
+  - long_context_degradation
+
+samples_per_category: 100
+turns_min: 3
+turns_max: 12
+
+split:
+  strategy: family
+  ratios: [0.7, 0.15, 0.15]

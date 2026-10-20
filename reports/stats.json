@@ -5,7 +5,7 @@
   "label_rate": 0.63354,
   "threshold": 0.41,
   "n_boot": 1000,
-  "generated_at": "2026-10-21T00:13:54",
+  "generated_at": "2026-10-21T00:57:01",
   "dataset": {
     "n_rows": 1100,
     "n_families": 238,
@@ -83,6 +83,32 @@
     "tn": 48,
     "fp": 11,
     "fn": 39
+  },
+  "template_lookup_baseline": {
+    "n": 161,
+    "n_pos": 102,
+    "n_neg": 59,
+    "threshold": 0.41,
+    "accuracy": 0.77019,
+    "precision": 0.74074,
+    "recall": 0.98039,
+    "specificity": 0.40678,
+    "f1": 0.84388,
+    "auroc": 0.80816,
+    "auprc": 0.85799,
+    "brier": 0.1621,
+    "nll": 0.8012,
+    "ece": 0.05035,
+    "tp": 100,
+    "tn": 24,
+    "fp": 35,
+    "fn": 2
+  },
+  "leakage_probe": {
+    "template_lookup_auroc": 0.80816,
+    "n_distinct_templates": 57,
+    "frac_templates_uniquely_categorised": 0.84211,
+    "note": "a template-lookup table that never sees the conversation; a trained model must clearly beat it to be reading the context"
   },
   "per_category": {
     "contradictory_context": {
@@ -328,7 +354,7 @@
       {
         "bin_lower": 0.1,
         "bin_upper": 0.2,
-        "mean_predicted": 0.14997878219415428,
+        "mean_predicted": 0.1499787821941543,
         "empirical_rate": 0.0,
         "count": 4
       },
@@ -349,7 +375,7 @@
       {
         "bin_lower": 0.4,
         "bin_upper": 0.5,
-        "mean_predicted": 0.45872361177295645,
+        "mean_predicted": 0.45872361177295634,
         "empirical_rate": 0.25,
         "count": 12
       },
@@ -400,28 +426,28 @@
       {
         "bin_lower": 0.2,
         "bin_upper": 0.30000000000000004,
-        "mean_predicted": 0.2631784914677645,
+        "mean_predicted": 0.2631784914677646,
         "empirical_rate": 0.5,
         "count": 4
       },
       {
         "bin_lower": 0.30000000000000004,
         "bin_upper": 0.4,
-        "mean_predicted": 0.3267139164116882,
+        "mean_predicted": 0.32671391641168807,
         "empirical_rate": 0.25,
         "count": 4
       },
       {
         "bin_lower": 0.4,
         "bin_upper": 0.5,
-        "mean_predicted": 0.4438710231138485,
+        "mean_predicted": 0.4438710231138484,
         "empirical_rate": 0.5555555555555556,
         "count": 9
       },
       {
         "bin_lower": 0.5,
         "bin_upper": 0.6000000000000001,
-        "mean_predicted": 0.581154862601473,
+        "mean_predicted": 0.5811548626014731,
         "empirical_rate": 1.0,
         "count": 3
       },
@@ -582,6 +608,214 @@
     123,
     2024
   ],
+  "leak_control": {
+    "dataset": {
+      "n_rows": 700,
+      "n_families": 230,
+      "categories": [
+        "contradictory_context",
+        "entity_ambiguity",
+        "evidence_conflict",
+        "long_context_degradation",
+        "model_memory_contamination",
+        "supported_context",
+        "unsupported_context"
+      ],
+      "label_rate": {
+        "train": 0.6354,
+        "val": 0.549,
+        "test": 0.6729
+      },
+      "gold_verified_agreement": 0.6457
+    },
+    "leakage_probe": {
+      "template_lookup_auroc": 0.63452,
+      "n_distinct_templates": 3,
+      "frac_templates_uniquely_categorised": 0.0,
+      "note": "a template-lookup table that never sees the conversation; a trained model must clearly beat it to be reading the context"
+    },
+    "model": {
+      "n": 107,
+      "n_pos": 72,
+      "n_neg": 35,
+      "threshold": 0.17,
+      "accuracy": 0.84112,
+      "precision": 0.81609,
+      "recall": 0.98611,
+      "specificity": 0.54286,
+      "f1": 0.89308,
+      "auroc": 0.96349,
+      "auprc": 0.98192,
+      "brier": 0.06901,
+      "nll": 0.22992,
+      "ece": 0.05814,
+      "tp": 71,
+      "tn": 19,
+      "fp": 16,
+      "fn": 1
+    },
+    "template_lookup_baseline": {
+      "n": 107,
+      "n_pos": 72,
+      "n_neg": 35,
+      "threshold": 0.17,
+      "accuracy": 0.6729,
+      "precision": 0.6729,
+      "recall": 1.0,
+      "specificity": 0.0,
+      "f1": 0.80447,
+      "auroc": 0.63452,
+      "auprc": 0.77873,
+      "brier": 0.22103,
+      "nll": 0.63414,
+      "ece": 0.03769,
+      "tp": 72,
+      "tn": 0,
+      "fp": 35,
+      "fn": 0
+    },
+    "ablation_ranking": [
+      [
+        "E_history_provenance_evidence",
+        0.96468
+      ],
+      [
+        "G_full_whitebox",
+        0.96429
+      ],
+      [
+        "F_full",
+        0.96349
+      ],
+      [
+        "D_history_provenance_contradiction",
+        0.80813
+      ],
+      [
+        "C_history_provenance",
+        0.7998
+      ],
+      [
+        "B_prompt_history",
+        0.79821
+      ],
+      [
+        "A_prompt_only",
+        0.48492
+      ]
+    ],
+    "benchmark": {
+      "gates": {
+        "safety": true,
+        "safety_margin": 0.6729,
+        "coverage": 0.5234,
+        "coverage_min": 0.5,
+        "coverage_ok": true,
+        "positives_caught": 0.9861,
+        "positives_caught_min": 0.5,
+        "positives_caught_ok": true,
+        "blocked_share": 0.4766,
+        "risk_generated": 0.0,
+        "risk_overall": 0.6729
+      },
+      "gate_status": "PASS"
+    }
+  },
+  "cross_label_generalization": {
+    "train_label_gold__test_label_verified": {
+      "n": 161,
+      "train_label_rate": 0.4362,
+      "test_label_rate": 0.45963,
+      "auroc_vs_other_source": 0.77757,
+      "auroc_vs_own_source": 0.98287,
+      "auprc_vs_other_source": 0.79234,
+      "f1_vs_other_source": 0.70064
+    },
+    "train_label_verified__test_label_gold": {
+      "n": 161,
+      "train_label_rate": 0.44401,
+      "test_label_rate": 0.49689,
+      "auroc_vs_other_source": 0.69437,
+      "auroc_vs_own_source": 0.98874,
+      "auprc_vs_other_source": 0.74071,
+      "f1_vs_other_source": 0.68
+    }
+  },
+  "leave_one_category_out": {
+    "per_category": [
+      {
+        "category": "contradictory_context",
+        "n": 12,
+        "n_pos": 10,
+        "auroc": 0.975
+      },
+      {
+        "category": "entity_ambiguity",
+        "n": 20,
+        "n_pos": 17,
+        "auroc": 1.0
+      },
+      {
+        "category": "evidence_conflict",
+        "n": 12,
+        "n_pos": 12,
+        "auroc": null,
+        "note": "the held-out split is single-class, so AUROC is undefined"
+      },
+      {
+        "category": "long_context_degradation",
+        "n": 17,
+        "n_pos": 11,
+        "auroc": 0.95455
+      },
+      {
+        "category": "model_memory_contamination",
+        "n": 12,
+        "n_pos": 6,
+        "auroc": 1.0
+      },
+      {
+        "category": "referential_ambiguity",
+        "n": 20,
+        "n_pos": 13,
+        "auroc": 0.73626
+      },
+      {
+        "category": "short_benign",
+        "n": 11,
+        "n_pos": 0,
+        "auroc": null,
+        "note": "the held-out split is single-class, so AUROC is undefined"
+      },
+      {
+        "category": "supported_context",
+        "n": 18,
+        "n_pos": 11,
+        "auroc": 0.80519
+      },
+      {
+        "category": "temporal_inconsistency",
+        "n": 10,
+        "n_pos": 4,
+        "auroc": 0.83333
+      },
+      {
+        "category": "unsupported_context",
+        "n": 18,
+        "n_pos": 13,
+        "auroc": 0.37692
+      },
+      {
+        "category": "unsupported_presupposition",
+        "n": 11,
+        "n_pos": 5,
+        "auroc": 1.0
+      }
+    ],
+    "mean_auroc": 0.85347,
+    "std_auroc": 0.19235,
+    "n_categories": 9
+  },
   "baselines": {
     "logistic_regression": {
       "calibrated": {
@@ -630,13 +864,13 @@
     "gates": {
       "safety": true,
       "safety_margin": 0.5927,
-      "coverage": 0.5155,
+      "coverage": 0.528,
       "coverage_min": 0.5,
       "coverage_ok": true,
       "positives_caught": 0.9608,
       "positives_caught_min": 0.5,
       "positives_caught_ok": true,
-      "blocked_share": 0.4845,
+      "blocked_share": 0.472,
       "risk_generated": 0.0408,
       "risk_overall": 0.6335
     },
@@ -653,13 +887,13 @@
         "hallucination_rate": 0.25
       },
       "RETRIEVE": {
-        "n": 26,
-        "share": 0.1615,
-        "hallucination_rate": 0.7692
+        "n": 28,
+        "share": 0.1739,
+        "hallucination_rate": 0.7857
       },
       "CLARIFY": {
-        "n": 8,
-        "share": 0.0497,
+        "n": 6,
+        "share": 0.0373,
         "hallucination_rate": 1.0
       },
       "CLARIFY_OR_ABSTAIN": {
@@ -1916,9 +2150,9 @@
   },
   "latency_ms": {
     "n": 25,
-    "median": 23.06,
-    "p95": 25.72,
-    "mean": 22.81,
+    "median": 20.96,
+    "p95": 23.47,
+    "mean": 21.5,
     "note": "warm PHCPipeline.analyze incl. SHAP, machine-local"
   },
   "figures": [

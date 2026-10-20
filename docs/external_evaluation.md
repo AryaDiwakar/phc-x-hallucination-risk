@@ -108,6 +108,15 @@ non-comparable rather than manufacturing a score.
 PHC-Conversation is a controlled supplementary benchmark. The primary claim is
 the framework and its deployment path, not the synthetic AUROC.
 
+Because the benchmark is synthetic, we also measure the artifact it invites:
+a lookup table over prompt templates reaches AUROC 0.808 without reading the
+conversation, because each category's prompt template identifies the category
+and the categories have very different base rates. On a leak-controlled
+variant of the benchmark — one shared prompt pool, so the question cannot
+identify the risk type — that lookup table falls to 0.635 and the prompt-only
+ablation collapses to 0.485 (chance) while the full model holds 0.963. See
+`docs/leakage_control.md`.
+
 The external results now say something more precise than "generalization
 failed":
 

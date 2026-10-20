@@ -7,6 +7,7 @@ Statistical helpers follow standard formulations:
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -125,6 +126,53 @@ def leak_check(
         "pos_rate_generated": float(y[~flagged].mean()) if (~flagged).any() else 0.0,
         "positives_caught": float(y[flagged].sum() / y.sum()) if y.sum() else 0.0,
     }
+
+
+# --------------------------------------------------------------- leakage probe
+_ENTITY_TOKEN = re.compile(r"\b[A-Z][A-Za-z]*-\d+[A-Z]?\b")
+_NUMBER_TOKEN = re.compile(r"\b\d[\d,\.]*%?\b")
+_FAMILY_TOKEN = re.compile(r"\bfam_\d+\b")
+
+
+def prompt_template(prompt: str) -> str:
+    """The *template* of a prompt, with entity/quantity slots masked.
+
+    Two prompts share a template when they ask the same kind of question of
+    different entities.  On PHC-Conversation every template belongs to
+    exactly one risk category, so the template identifies the category and
+    therefore the label's base rate -- a leak that has to be measured, not
+    assumed away.
+    """
+    p = _ENTITY_TOKEN.sub("<E>", prompt or "")
+    p = _NUMBER_TOKEN.sub("<N>", p)
+    p = _FAMILY_TOKEN.sub("<ID>", p)
+    return re.sub(r"\s+", " ", p).strip().lower()
+
+
+def template_lookup_scores(
+    train_rows: Sequence[Dict[str, Any]],
+    rows: Sequence[Dict[str, Any]],
+    label_key: str = "label",
+) -> np.ndarray:
+    """Score each row by the training base rate of its prompt template.
+
+    This is the baseline that matters for a synthetic benchmark: it learns
+    nothing about hallucination, only "prompts that look like this are
+    positive X% of the time".  A trained model that cannot clearly beat it
+    is reading the benchmark, not the conversation.
+    """
+    rates: Dict[str, List[float]] = {}
+    for r in train_rows:
+        rates.setdefault(prompt_template(str(r.get("prompt", ""))), []).append(
+            float(r.get(label_key, 0) or 0)
+        )
+    global_rate = float(np.mean([r.get(label_key, 0) or 0 for r in train_rows])) if train_rows else 0.0
+    out = np.zeros(len(rows), dtype=float)
+    for i, r in enumerate(rows):
+        values = rates.get(prompt_template(str(r.get("prompt", ""))))
+        out[i] = float(np.mean(values)) if values else global_rate
+    return out
+
 
 
 # ------------------------------------------------------------------- bootstrap

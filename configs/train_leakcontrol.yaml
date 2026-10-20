@@ -1,0 +1,54 @@
+# Training on the leak-controlled variant of PHC-Conversation.
+# Same model, same hyper-parameters and the same protocol as configs/train.yaml;
+# only the dataset differs, so any change in the numbers is attributable to
+# removing the prompt->category leak.
+experiment: phcx_leakcontrol
+seed: 42
+seeds: [42, 123, 2024]
+
+dataset:
+  name: phc-conversation-leakcontrol
+  path: data/phc_conversation_leakcontrol
+  split_strategy: family
+  split_ratios: [0.7, 0.15, 0.15]
+  ab_split_by: source_question
+
+features:
+  mode: black_box
+  history_turns: 10
+  use_prompt: true
+  use_history: true
+  use_provenance: true
+  use_contradiction: true
+  use_evidence: true
+  use_temporal: true
+  use_presupposition: true
+  use_ambiguity: true
+  use_whitebox: false
+
+model:
+  name: rf
+  hyperparameters:
+    n_estimators: 300
+    max_depth: 8
+    min_samples_leaf: 5
+
+calibration:
+  method: platt
+  split: val
+
+policy:
+  optimize_thresholds: true
+  cost_fp: 1.0
+  cost_fn: 3.0
+  abstention_cost: 2.0
+  min_coverage: 0.50
+
+evaluation:
+  metrics: [auroc, auprc, f1, precision, recall, ece, brier, nll]
+  bootstrap_rounds: 1000
+  confidence: 0.95
+
+output:
+  checkpoint_dir: checkpoints
+  results_dir: results/raw
