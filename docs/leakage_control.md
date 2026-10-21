@@ -18,7 +18,7 @@ therefore predicts the label without reading anything else:
 | Category lookup table (train base rate per category) | 0.723 |
 | **Template lookup table (train base rate per template)** | **0.808** |
 | Prompt-only ablation (a learned model on prompt features only) | 0.853 |
-| Full PHC-X | 0.986 |
+| Full PHC-X | 0.987 |
 
 So the prompt-only ablation of 0.853 was almost entirely a memorised lookup,
 and the paper's phrase "conversation context—not the prompt alone—carries
@@ -60,27 +60,27 @@ phc ablation --config configs/ablation.yaml \
 | categories | 11 | 7 |
 | templates identifying one category | 84.2 % | 0.0 % |
 | template lookup AUROC | 0.808 | 0.635 |
-| A: prompt only | 0.853 | **0.485** |
-| C: + history, provenance | 0.887 | 0.800 |
-| D: + contradiction | 0.901 | 0.808 |
-| E: + evidence | 0.984 | 0.965 |
-| F: full | 0.986 | **0.963** |
+| A: prompt only | 0.853 | **0.434** |
+| C: + history, provenance | 0.887 | 0.793 |
+| D: + contradiction | 0.901 | 0.804 |
+| E: + evidence | 0.984 | 0.964 |
+| F: full | 0.987 | **0.961** |
 | action-level gates | PASS | PASS |
 
 Three things follow.
 
 **The prompt-only number was an artifact.** It collapses to chance
-(0.485) once the prompt cannot identify the risk type.
+(0.434) once the prompt cannot identify the risk type.
 
 **The framework's discrimination was never resting on it.** The full model
-moves only from 0.986 to 0.963, so the conversation state and the evidence
+moves only from 0.987 to 0.961, so the conversation state and the evidence
 were carrying the signal all along — the artifact was available to
 *baselines*, not to the model.
 
 **The ablation ladder becomes interpretable.** With a clean prompt, the
 order is the one the method section claims: history and provenance reach
-0.800, contradiction adds 0.008, and evidence coverage is the single
-largest contributor at 0.965.
+0.793, contradiction adds 0.011, and evidence coverage is the single
+largest contributor at 0.964.
 
 ## Generalisation stress tests
 
@@ -94,9 +94,9 @@ annotators.
 | Trained on | Scored against | AUROC |
 |---|---|---:|
 | `label_gold` | `label_gold` (its own source) | 0.983 |
-| `label_gold` | `label_verified` (unseen source) | **0.778** |
+| `label_gold` | `label_verified` (unseen source) | **0.779** |
 | `label_verified` | `label_verified` (its own source) | 0.989 |
-| `label_verified` | `label_gold` (unseen source) | **0.694** |
+| `label_verified` | `label_gold` (unseen source) | **0.695** |
 
 The model keeps a substantial part of its discrimination against a label
 source it has never seen, which is evidence that it learned something about
@@ -111,18 +111,19 @@ model has to detect a risk type it has never been trained on.
 | `entity_ambiguity` | 20 | 1.000 |
 | `model_memory_contamination` | 12 | 1.000 |
 | `unsupported_presupposition` | 11 | 1.000 |
-| `contradictory_context` | 12 | 0.975 |
 | `long_context_degradation` | 17 | 0.955 |
-| `temporal_inconsistency` | 10 | 0.833 |
-| `supported_context` | 18 | 0.805 |
-| `referential_ambiguity` | 20 | 0.736 |
-| `unsupported_context` | 18 | 0.377 |
+| `contradictory_context` | 12 | 0.925 |
+| `temporal_inconsistency` | 10 | 0.917 |
+| `referential_ambiguity` | 20 | 0.874 |
+| `supported_context` | 18 | 0.195 |
+| `unsupported_context` | 18 | 0.369 |
 
-Mean **0.853 ± 0.192** over 9 categories (two further categories have a
+Mean **0.804 ± 0.285** over 9 categories (two further categories have a
 single-class held-out split, so no AUROC is defined). The framework transfers
-to unseen risk types for most categories and fails on `unsupported_context`,
-whose signal — the question's topic does not match the evidence — is
-specific to having seen that category.
+to unseen risk types for most categories, and fails on the two whose signal
+is specific to having seen them: `unsupported_context` — the question's
+topic does not match the evidence — and `supported_context`, where the
+absence of a contradiction is itself the signal.
 
 ## What this does not fix
 
@@ -135,10 +136,10 @@ pending.
 ## How the paper uses this
 
 The paper and the README **lead with the leak-controlled number** (AUROC
-0.963, n = 107) and report the standard benchmark (0.986, n = 161) beside
+0.961, n = 107) and report the standard benchmark (0.987, n = 161) beside
 it, with the template-lookup probe in both columns. The reasoning: the
-standard benchmark's 0.986 is a real measurement, but a reader cannot tell
+standard benchmark's 0.987 is a real measurement, but a reader cannot tell
 from it how much of it came from the conversation. The leak-controlled
 number answers that question directly, so it is the one the headline should
-carry — and quoting 0.986 alone would invite exactly the objection this
+carry — and quoting 0.987 alone would invite exactly the objection this
 document exists to pre-empt.

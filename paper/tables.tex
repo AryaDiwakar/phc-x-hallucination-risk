@@ -7,11 +7,11 @@
 \toprule
 Method & AUROC & AUPRC & F1 & Prec. & Rec. & ECE & Brier \\
 \midrule
-PHC-X (RF, calibrated) & 0.986 & 0.992 & 0.951 & 0.942 & 0.961 & 0.048 & 0.050 \\
-PHC-X (RF, uncalibrated) & 0.986 & 0.992 & 0.935 & 0.893 & 0.980 & 0.107 & 0.059 \\
-Logistic regression (calibrated) & 0.963 & 0.978 & 0.910 & 0.842 & 0.990 & 0.072 & 0.077 \\
-Heuristic (no training) & 0.727 & 0.852 & 0.716 & 0.851 & 0.618 & 0.252 & 0.248 \\
-Template lookup (leakage probe) & 0.808 & 0.858 & 0.844 & 0.741 & 0.980 & 0.050 & 0.162 \\
+PHC-X (RF, calibrated) & 0.987 & 0.992 & 0.947 & 0.925 & 0.971 & 0.050 & 0.049 \\
+PHC-X (RF, uncalibrated) & 0.987 & 0.992 & 0.935 & 0.886 & 0.990 & 0.092 & 0.060 \\
+Logistic regression (calibrated) & 0.960 & 0.976 & 0.911 & 0.836 & 1.000 & 0.073 & 0.077 \\
+Heuristic (no training) & 0.724 & 0.848 & 0.711 & 0.737 & 0.686 & 0.250 & 0.257 \\
+Template lookup (leakage probe) & 0.808 & 0.858 & 0.837 & 0.730 & 0.980 & 0.050 & 0.162 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -24,16 +24,16 @@ Template lookup (leakage probe) & 0.808 & 0.858 & 0.844 & 0.741 & 0.980 & 0.050 
 \toprule
 Category & $n$ & AUROC & F1 & ECE \\
 \midrule
-contradictory\_context & 12 & 0.950 & 0.947 & 0.071 \\
-entity\_ambiguity & 20 & 1.000 & 0.919 & 0.155 \\
-evidence\_conflict & 12 & 0.500 & 1.000 & 0.004 \\
-long\_context\_degradation & 17 & 1.000 & 1.000 & 0.056 \\
-model\_memory\_contamination & 12 & 1.000 & 1.000 & 0.050 \\
-referential\_ambiguity & 20 & 0.973 & 0.897 & 0.102 \\
+contradictory\_context & 12 & 0.950 & 0.947 & 0.070 \\
+entity\_ambiguity & 20 & 1.000 & 0.919 & 0.148 \\
+evidence\_conflict & 12 & 0.500 & 1.000 & 0.003 \\
+long\_context\_degradation & 17 & 1.000 & 1.000 & 0.050 \\
+model\_memory\_contamination & 12 & 1.000 & 1.000 & 0.049 \\
+referential\_ambiguity & 20 & 0.951 & 0.897 & 0.111 \\
 short\_benign & 11 & 0.500 & 0.000 & 0.000 \\
 supported\_context & 18 & 1.000 & 1.000 & 0.006 \\
-temporal\_inconsistency & 10 & 1.000 & 1.000 & 0.030 \\
-unsupported\_context & 18 & 0.831 & 0.870 & 0.257 \\
+temporal\_inconsistency & 10 & 1.000 & 1.000 & 0.029 \\
+unsupported\_context & 18 & 0.862 & 0.846 & 0.270 \\
 unsupported\_presupposition & 11 & 1.000 & 1.000 & 0.000 \\
 \bottomrule
 \end{tabular}
@@ -67,8 +67,8 @@ A & Prompt only & 0.853 & -0.133 \\
 Gate & Value & Status \\
 \midrule
 Coverage & 0.528 & PASS \\
-Positives caught & 0.961 & PASS \\
-Safety margin & 0.593 & -- \\
+Positives caught & 0.971 & PASS \\
+Safety margin & 0.613 & -- \\
 Blocked share & 0.472 & -- \\
 \bottomrule
 \end{tabular}
@@ -82,9 +82,9 @@ Blocked share & 0.472 & -- \\
 \toprule
 Dataset & $n$ & AUROC & 95\% CI & AUPRC \\
 \midrule
-DiaHalu (turn-aligned) & 5923 & 0.429 & 0.403--0.456 & 0.071 \\
-HaluEval pair (purity check) & 20000 & 0.500 & 0.493--0.508 & 0.500 \\
-HaluEval counterfactual & 20000 & 0.709 & 0.702--0.716 & 0.659 \\
+DiaHalu (turn-aligned) & 5923 & 0.431 & 0.404--0.458 & 0.072 \\
+HaluEval pair (purity check) & 20000 & 0.500 & 0.493--0.507 & 0.500 \\
+HaluEval counterfactual & 20000 & 0.705 & 0.698--0.713 & 0.659 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -99,11 +99,11 @@ Quantity & PHC-Conversation & leak-controlled \\
 \midrule
 Templates identifying one category & 84.2\% & 0.0\% \\
 Template lookup AUROC & 0.808 & 0.635 \\
-A: prompt only & 0.853 & 0.485 \\
-C: + history, provenance & 0.887 & 0.800 \\
-D: + contradiction & 0.901 & 0.808 \\
-E: + evidence & 0.984 & 0.965 \\
-F: full & 0.986 & 0.963 \\
+A: prompt only & 0.853 & 0.434 \\
+C: + history, provenance & 0.887 & 0.793 \\
+D: + contradiction & 0.901 & 0.804 \\
+E: + evidence & 0.984 & 0.964 \\
+F: full & 0.986 & 0.961 \\
 \bottomrule
 \end{tabular}
 \end{table}

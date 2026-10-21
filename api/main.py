@@ -34,6 +34,12 @@ LOG_PATH = Path(os.environ.get("PHCX_LOG", "data/decision_log.jsonl"))
 class Turn(BaseModel):
     role: str = "user"
     content: str = ""
+    #: Provenance of this turn.  Without these the memory cannot tell a
+    #: source-verified statement from one the model asserted itself, and the
+    #: contamination score degenerates.
+    source: Optional[str] = None
+    verified: bool = False
+    retrieved: bool = False
 
 
 class AnalyzeRequest(BaseModel):

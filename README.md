@@ -28,14 +28,14 @@ type — the prompt-only ablation collapses to chance while the model holds:
 
 | Metric | PHC-X, leak-controlled (n = 107) | PHC-X, standard (n = 161) | Heuristic (standard) |
 |---|---|---|---|
-| AUROC | **0.963** | 0.986 [0.972, 0.996] (1000× bootstrap CI) | 0.727 |
-| AUPRC | **0.982** | 0.992 | 0.852 |
-| F1 @ tuned threshold | **0.893** (P 0.816 / R 0.986) | 0.951 (P 0.942 / R 0.961) | 0.716 |
-| ECE (10-bin) | 0.058 | 0.048 (0.107 uncalibrated) | 0.252 |
-| Multi-seed AUROC | 0.964 ± 0.001 (seeds 42 / 123 / 2024) | 0.986 ± 0.000 | — |
+| AUROC | **0.961** | 0.987 [0.973, 0.996] (1000× bootstrap CI) | 0.727 |
+| AUPRC | **0.981** | 0.992 | 0.852 |
+| F1 @ tuned threshold | **0.928** (P 0.970 / R 0.889) | 0.947 (P 0.942 / R 0.961) | 0.716 |
+| ECE (10-bin) | 0.043 | 0.050 (0.107 uncalibrated) | 0.252 |
+| Multi-seed AUROC | 0.962 ± 0.001 (seeds 42 / 123 / 2024) | 0.987 ± 0.000 | — |
 | *Template lookup (leakage probe)* | *0.635* | *0.808* | *—* |
-| *Prompt-only ablation* | *0.485 (chance)* | *0.853* | *—* |
-| Action-level gates | **PASS** (coverage 52.3 %, 98.6 % caught, generated-turn rate 0.000 vs base 0.673) | **PASS** (coverage 51.5 %, 96.1 % caught, rate 0.041 vs base 0.634) | — |
+| *Prompt-only ablation* | *0.434 (chance)* | *0.853* | *—* |
+| Action-level gates | **PASS** (coverage 52.3 %, 90.3 % caught, generated-turn rate 0.100 vs base 0.673) | **PASS** (coverage 52.8 %, 97.1 % caught, generated-turn rate 0.021 vs base 0.634) | — |
 
 The prompt-only figure on the standard benchmark is a memorised lookup, not
 a measure of what the prompt carries; the leak-controlled column is the
@@ -72,9 +72,9 @@ phc ablation --config configs/ablation.yaml \
 |---|---:|---:|
 | Templates identifying one category | 84.2 % | 0.0 % |
 | Template lookup AUROC | 0.808 | 0.635 |
-| A: prompt only | 0.853 | **0.485** (chance) |
-| E: + history, provenance, evidence | 0.984 | 0.965 |
-| F: full | 0.986 | **0.963** |
+| A: prompt only | 0.853 | **0.434** (chance) |
+| E: + history, provenance, evidence | 0.984 | 0.964 |
+| F: full | 0.987 | **0.961** |
 
 The prompt-only ablation collapses to chance while the full model barely
 moves. The original 0.853 was an artifact; the framework's discrimination
@@ -83,18 +83,19 @@ was already coming from the conversation.
 **Generalisation stress tests** (`phc stress`):
 
 - *Cross-label source* — training on `label_gold` and scoring against
-  `label_verified` gives AUROC **0.778** (against 0.983 for its own source),
+  `label_verified` gives AUROC **0.779** (against 0.987 for its own source),
   and the reverse gives **0.694** (against 0.989). The model keeps much of
   its discrimination against a label source it has never seen.
 - *Leave-one-category-out* — training on ten risk types and testing on the
-  eleventh gives mean AUROC **0.853 ± 0.192** over 9 categories, from
-  1.000 (`entity_ambiguity`) down to 0.377 (`unsupported_context`, the one
-  whose signal is specific to having seen it).
+  eleventh gives mean AUROC **0.804 ± 0.285** over 9 categories, from
+  1.000 (`entity_ambiguity`) down to 0.195 (`supported_context`) — the
+  framework transfers to risk types it has never seen for most categories,
+  and fails on the two whose signal is specific to having seen them.
 
 Ablation AUROC (standard benchmark): `A_prompt_only` 0.853 → `B` 0.853 →
 `C` 0.887 → `D` 0.901 → `E_history_provenance_evidence` 0.984 →
 `F_full` 0.986. On the leak-controlled variant the same ladder reads
-0.485 → 0.798 → 0.800 → 0.808 → 0.965 → 0.963, and the ordering is the one
+0.434 → 0.789 → 0.793 → 0.804 → 0.964 → 0.961, and the ordering is the one
 the method section claims: history and provenance get you to 0.800,
 contradiction adds a little, and evidence coverage is the single largest
 contributor.
@@ -183,9 +184,9 @@ Current zero-retraining results are intentionally visible:
 | Construction | Rows | PHC-X AUROC | 95% CI |
 |---|---:|---:|---:|
 | DiaHalu, turn-aligned | 5,923 turns | 0.429 | 0.403–0.456 |
-| DiaHalu, stratified by history length | 10 strata | **0.507** | — |
+| DiaHalu, stratified by history length | 10 strata | **0.510** | — |
 | HaluEval right/hallucinated pair (purity check) | 20,000 | 0.500 | 0.493–0.508 |
-| HaluEval counterfactual | 20,000 | **0.709** | 0.702–0.716 |
+| HaluEval counterfactual | 20,000 | **0.705** | 0.699–0.711 |
 | HalluHard seeds | 250 | coverage only | N/A |
 
 Three things are now separated cleanly:
@@ -195,13 +196,13 @@ Three things are now separated cleanly:
   dialogues the label described a different turn than the prompt. Turns after
   an annotated error are excluded because they inherit the false premise.
 - **The raw DiaHalu number is confounded** by conversation length, so the
-  stratified figure (0.507) is the honest one: the system carries no
+  stratified figure (0.510) is the honest one: the system carries no
   DiaHalu signal.
 - **The HaluEval pair is a purity check, not a generalization test.** Its
   AUROC is exactly 0.500, which *demonstrates* that the score cannot be
   using the response — the system is genuinely pre-generation. The
   counterfactual construction uses the same public prompts with only the
-  context changed, and reaches 0.709: the context-coverage capability does
+  context changed, and reaches 0.705: the context-coverage capability does
   transfer even though hallucination discrimination does not.
 
 See `docs/external_evaluation.md` and `docs/human_validation_protocol.md`.

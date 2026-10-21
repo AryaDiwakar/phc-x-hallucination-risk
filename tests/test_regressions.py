@@ -229,6 +229,50 @@ def test_prompt_has_negation_detects_contractions():
     assert out["prompt_has_negation"] == 1.0
 
 
+# ------------------------------------------------------------- ambiguity
+def test_ambiguity_does_not_flag_a_reference_that_matches_nothing():
+    """'the held-out set' shares no content word with the conversation.
+
+    The hashed n-gram similarity of two short unrelated strings is dominated
+    by hash collisions, which used to make an unmatched reference look like
+    an ambiguous one.
+    """
+    from phcx.ambiguity import AmbiguityEngine
+
+    history = [
+        {"role": "user", "content": "We use Atlas A for evaluation."},
+        {"role": "assistant", "content": "Understood, Atlas A it is."},
+    ]
+    mem = ConversationMemory.from_history(history)
+    res = AmbiguityEngine().analyze(
+        "Summarize the Atlas A results on the held-out set.", mem)
+    flagged = {r["reference"].lower() for r in res.references}
+    assert "the held-out set" not in flagged
+    assert res.score < 0.5, "an unmatched reference was scored as ambiguous"
+
+
+def test_ambiguity_reference_keeps_hyphenated_words_intact():
+    """The captured reference must be the whole noun phrase."""
+    from phcx.ambiguity.engine import _NP_REF_RE, _TRAILING_STOP
+
+    def refs(text):
+        out = []
+        for m in _NP_REF_RE.finditer(text):
+            words = m.group(0).strip().split()
+            while len(words) > 1 and words[-1].lower() in _TRAILING_STOP:
+                words.pop()
+            if len(words) >= 2:
+                out.append(" ".join(words))
+        return out
+
+    got = refs("Summarize the Atlas A results on the held-out set.")
+    assert "the held-out set" in got
+    assert "the held" not in got
+    # a trailing function word is not part of the noun phrase
+    assert "that model configuration" in refs("Update that model configuration and report it.")
+    assert not any(r.endswith(" and") for r in refs("Update that model configuration and report it."))
+
+
 def test_history_window_keeps_size_features_on_the_full_conversation():
     """`history_turns` bounds content analysis, not the conversation size."""
     hist = [

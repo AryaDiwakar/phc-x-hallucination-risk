@@ -13,12 +13,15 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..entity.tracker import EntityTracker
 from ..memory import ConversationMemory
-from ..utils.text import similarity
+from ..utils.text import content_tokens, similarity
 
 _NP_REF_RE = re.compile(
     r"\b("
     r"(?:the|this|that|our|my|your|previous|earlier|last|above|mentioned|aforementioned)"
-    r"\s+(?:[\w \-]{2,30}?)"
+    # a noun phrase of up to three words, each possibly hyphenated.  The
+    # quantifier must not stop at an internal word boundary, or "the
+    # held-out set" would be captured as the meaningless fragment "the held".
+    r"\s+(?:[\w]+(?:-[\w]+)*)(?:\s+(?:[\w]+(?:-[\w]+)*)){0,2}"
     r"|that dataset|the dataset|that model|the model|the algorithm|our project|"
     r"previous(?:ly)?\s+(?:answer|result|model|dataset|claim|statement|approach)|"
     r"earlier\s+(?:answer|result|model|dataset|claim|statement|approach)"
@@ -28,6 +31,12 @@ _NP_REF_RE = re.compile(
 _BARE_RE = re.compile(r"\b(it|they|them|these|those|he|she)\b", re.I)
 _BARE = {"it", "they", "them", "these", "those", "he", "she"}
 _STOP_REF = {"the dataset", "the model", "this", "that", "it"}
+#: function words that must not end a captured noun phrase ("that model
+#: configuration and" -> "that model configuration")
+_TRAILING_STOP = {
+    "and", "or", "but", "to", "for", "of", "in", "on", "at", "with", "from",
+    "the", "a", "an", "is", "are", "was", "were", "as", "by", "that", "this",
+}
 
 
 @dataclass
@@ -47,9 +56,13 @@ class AmbiguityResult:
 
 
 class AmbiguityEngine:
-    def __init__(self, margin: float = 0.12, min_candidates: int = 2):
+    def __init__(self, margin: float = 0.12, min_candidates: int = 2,
+                 min_relevance: float = 0.10):
         self.margin = margin
         self.min_candidates = min_candidates
+        #: a candidate must be at least this relevant to count as a plausible
+        #: antecedent; below it the reference is unmatched, not ambiguous
+        self.min_relevance = min_relevance
         self._entities = EntityTracker()
 
     def _candidates(self, memory: ConversationMemory) -> List[Tuple[str, int, str]]:
@@ -87,9 +100,32 @@ class AmbiguityEngine:
                 for sc, c, tid, spk in top[:3]
             ]
 
+        def _mentions_reference(ref: str, sentence: str) -> bool:
+            """Does the sentence share a content word with the reference?
+
+            A definite reference that names something specific ("the held-out
+            set", "the Atlas A results") can only be ambiguous between
+            statements that mention it.  Without this guard the hashed
+            n-gram similarity of two short, unrelated strings is dominated by
+            hash collisions, and a reference that matches nothing in the
+            conversation gets flagged as ambiguous.
+            """
+            ref_words = {w for w in content_tokens(ref) if len(w) > 2}
+            if not ref_words:
+                return True
+            sent_words = set(content_tokens(sentence))
+            return bool(ref_words & sent_words)
+
         # ---------------- (1) definite / demonstrative NPs ---------------
         for m in _NP_REF_RE.finditer(prompt):
             ref = m.group(0).strip()
+            # drop trailing function words the noun phrase ran into
+            words = ref.split()
+            while len(words) > 1 and words[-1].lower() in _TRAILING_STOP:
+                words.pop()
+            ref = " ".join(words)
+            if len(ref.split()) < 2:
+                continue
             if ref.lower() in _STOP_REF and len(ref.split()) < 3:
                 # generic "the dataset"/"the model": resolve via entity inventory
                 head = ref.lower().replace("the ", "").replace("that ", "")
@@ -122,10 +158,19 @@ class AmbiguityEngine:
                 any(e in c["text"].lower() for e in ref_ents) for c in cands
             ):
                 continue
+            # a specific reference can only be ambiguous between statements
+            # that actually mention it
+            cands = [c for c in cands if _mentions_reference(ref, c["text"])]
             if len(cands) >= self.min_candidates:
                 s1, s2 = cands[0]["relevance"], cands[1]["relevance"]
                 margin = round(s1 - s2, 4)
-                if margin < self.margin:
+                # A reference is only *ambiguous* if the leading candidate is
+                # actually plausible.  A reference that matches nothing (say
+                # "the held-out set" in a conversation about datasets) has
+                # near-zero relevance and a tiny margin by chance, and
+                # flagging it as ambiguous is a false positive.  The
+                # bare-pronoun branch below applies the same guard.
+                if s1 > self.min_relevance and margin < self.margin:
                     res.references.append({"reference": ref, "candidates": cands, "margin": margin, "type": "np"})
                     res.reasons.append(
                         f"\"{ref}\" has {len(cands)} plausible antecedents (margin={margin})"
@@ -135,7 +180,7 @@ class AmbiguityEngine:
         for m in _BARE_RE.finditer(prompt):
             ref = m.group(0).lower()
             cands = _score_reference(ref, prompt)
-            if len(cands) >= self.min_candidates and cands[0]["relevance"] > 0.10:
+            if len(cands) >= self.min_candidates and cands[0]["relevance"] > self.min_relevance:
                 s1, s2 = cands[0]["relevance"], cands[1]["relevance"]
                 margin = round(s1 - s2, 4)
                 if margin < self.margin:
