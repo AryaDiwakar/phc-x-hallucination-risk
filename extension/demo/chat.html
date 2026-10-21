@@ -20,7 +20,7 @@
     <div class="eyebrow">extension sandbox / local only</div>
     <h1>Test the guard before the answer <em>happens.</em></h1>
     <p class="intro">Load the PHC-X extension, start <code>phc serve</code>, and submit a prompt. The guard intercepts the send, explains the risk, and blocks critical actions until you choose what happens next.</p>
-    <section class="chat-card"><div class="chat-head"><span>conversation preview</span><b>service ready</b></div><div id="log"><div class="msg user">We use Atlas A for evaluation.</div><div class="msg assistant">Atlas A is our evaluation dataset.</div><div class="msg user">And how big is it?</div><div class="msg assistant">Atlas A contains 50,000 samples.</div></div><div class="composer-wrap"><textarea id="composer" placeholder="Type a message... (Enter to send)"></textarea><button id="send" aria-label="Send message">Send</button></div></section>
+    <section class="chat-card"><div class="chat-head"><span>conversation preview</span><b>service ready</b></div><div id="log"><div class="msg user" data-message-author-role="user">We use Atlas A for evaluation.</div><div class="msg assistant" data-message-author-role="assistant">Atlas A is our evaluation dataset.</div><div class="msg user" data-message-author-role="user">And how big is it?</div><div class="msg assistant" data-message-author-role="assistant">Atlas A contains 50,000 samples.</div></div><div class="composer-wrap"><textarea id="composer" placeholder="Type a message... (Enter to send)"></textarea><button id="send" aria-label="Send message">Send</button></div></section>
     <div class="footer"><span class="hint">Try: "Summarize the Orion-B results on the held-out set."</span><span class="hint">Enter to send / Shift+Enter for a new line</span></div>
   </main>
   <script>
@@ -29,8 +29,16 @@
     function post() {
       const text = composer.value.trim();
       if (!text) return;
-      const u = document.createElement("div"); u.className = "msg user"; u.textContent = text; log.appendChild(u);
-      const a = document.createElement("div"); a.className = "msg assistant"; a.textContent = "Received: " + text.slice(0, 120); log.appendChild(a);
+      const u = document.createElement("div");
+      u.className = "msg user";
+      u.setAttribute("data-message-author-role", "user");
+      u.textContent = text;
+      log.appendChild(u);
+      const a = document.createElement("div");
+      a.className = "msg assistant";
+      a.setAttribute("data-message-author-role", "assistant");
+      a.textContent = "Received: " + text.slice(0, 120);
+      log.appendChild(a);
       composer.value = ""; log.scrollTop = log.scrollHeight;
     }
     document.getElementById("send").addEventListener("click", post);

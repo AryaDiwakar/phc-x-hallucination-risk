@@ -50,6 +50,9 @@ const HISTORY_SELECTORS = [
   "[class*='message'][data-author]",
   ".message",
   "[class*='turn']",
+  // exact class-token match, so it cannot over-match the way a substring
+  // selector would (".msg" is a substring of ".message")
+  "[class~='msg']",
 ];
 
 function collectHistory(limit = 8) {
