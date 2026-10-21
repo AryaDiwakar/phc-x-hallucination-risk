@@ -28,14 +28,14 @@ type — the prompt-only ablation collapses to chance while the model holds:
 
 | Metric | PHC-X, leak-controlled (n = 107) | PHC-X, standard (n = 161) | Heuristic (standard) |
 |---|---|---|---|
-| AUROC | **0.961** | 0.987 [0.973, 0.996] (1000× bootstrap CI) | 0.727 |
+| AUROC | **0.961** | 0.987 [0.972, 0.996] (1000× bootstrap CI) | 0.724 |
 | AUPRC | **0.981** | 0.992 | 0.852 |
 | F1 @ tuned threshold | **0.928** (P 0.970 / R 0.889) | 0.947 (P 0.942 / R 0.961) | 0.716 |
-| ECE (10-bin) | 0.043 | 0.050 (0.107 uncalibrated) | 0.252 |
+| ECE (10-bin) | 0.043 | 0.050 (0.092 uncalibrated) | 0.252 |
 | Multi-seed AUROC | 0.962 ± 0.001 (seeds 42 / 123 / 2024) | 0.987 ± 0.000 | — |
 | *Template lookup (leakage probe)* | *0.635* | *0.808* | *—* |
 | *Prompt-only ablation* | *0.434 (chance)* | *0.853* | *—* |
-| Action-level gates | **PASS** (coverage 52.3 %, 90.3 % caught, generated-turn rate 0.100 vs base 0.673) | **PASS** (coverage 52.8 %, 97.1 % caught, generated-turn rate 0.021 vs base 0.634) | — |
+| Action-level gates | **PASS** (coverage 52.3 %, 90.3 % caught, generated-turn rate 0.100 vs base 0.673) | **PASS** (coverage 52.8 %, 97.1 % caught, generated-turn rate 0.021 vs base 0.633) | — |
 
 The prompt-only figure on the standard benchmark is a memorised lookup, not
 a measure of what the prompt carries; the leak-controlled column is the
