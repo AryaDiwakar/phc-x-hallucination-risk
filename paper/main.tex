@@ -392,15 +392,20 @@ non-comparable to the pre-generation classifier.
 \textbf{Human validation is pending.} A blinded, stratified annotation
 packet is prepared (240 items plus 40 intra-rater duplicates, covering every
 risk category, every DiaHalu domain, all three action groups and all four
-score bands) and the full analysis pipeline---inter-rater agreement,
-human-vs-model AUROC, calibration by band, action disagreement and the
-false-block rate---has been exercised against a \emph{synthetic} annotation
-round built from a simulator with per-annotator noise. That dry run is a
-rehearsal, not a study, and it is not reported as human validation. It did
-surface a defect in the rubric: a support-based question cannot reach a
-\emph{reasoning} error whose facts are all present, so the protocol has been
-amended with a question about whether the reasoning is sound and whether the
-answer addresses the question. No human labels exist in this repository.
+score bands), together with the instrument an annotator actually uses and
+the full analysis pipeline---inter-rater agreement, human-vs-model AUROC,
+calibration by band, action disagreement and the false-block rate. That
+pipeline has been exercised against a \emph{synthetic} annotation round
+built from a simulator that models the failure modes of real annotation
+(selective reading of long conversations, fatigue, calibration drift,
+genuine ambiguity and correlated answers). That dry run is a rehearsal, not
+a study, and it is not reported as human validation. It did surface two
+defects in the protocol: a support-based question cannot reach a
+\emph{reasoning} error whose facts are all present, and the DiaHalu items
+carry no evidence at all, so the same question cannot be judged against a
+document. The protocol has been amended with a question about whether the
+reasoning is sound and whether the answer addresses the question. No human
+labels exist in this repository.
 \section{Deployment}
 \textbf{CLI.} Eleven \texttt{phc} subcommands cover dataset generation,
 training, evaluation, calibration, benchmarking, ablations, significance

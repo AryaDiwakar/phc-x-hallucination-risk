@@ -261,6 +261,115 @@ def cmd_paper(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_analyze_annotations(args: argparse.Namespace) -> int:
+    """Run the protocol's analysis over a file of annotations."""
+    from pathlib import Path
+
+    from phcx.experiments.human_validation import analyze_annotations
+
+    annotations: List[Dict[str, Any]] = []
+    with Path(args.annotations).open(encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if "annotation_id" in row:
+                annotations.append(row)
+    key_path = Path(args.key)
+    key: List[Dict[str, Any]] = []
+    if key_path.exists():
+        with key_path.open(encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if "annotation_id" in row:
+                    key.append(row)
+
+    report = analyze_annotations(annotations, key, seed=args.seed)
+    report["annotations_file"] = str(args.annotations)
+    report["n_annotators"] = len({a.get("annotator_code") for a in annotations})
+    if args.out:
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(report, indent=2))
+        print(f"[analyze-annotations] -> {out}")
+    if args.json:
+        _print_json(report)
+    return 0
+
+
+def cmd_annotate(args: argparse.Namespace) -> int:
+    """Run an annotation session over the human-validation packet."""
+    from phcx.annotate import (
+        AnnotationSession,
+        RUBRIC_TEXT,
+        format_item,
+        validate_answers,
+    )
+
+    session = AnnotationSession.from_packet(
+        args.packet, args.out, code=args.code, seed=args.seed,
+        shuffle=not args.no_shuffle,
+    )
+    if args.dry_run:
+        item = session.take()
+        if item is None:
+            print("packet exhausted")
+            return 0
+        print(format_item(item))
+        print(RUBRIC_TEXT)
+        return 0
+
+    print(f"[annotate] code {session.code} | {session.n_remaining} of "
+          f"{session.n_total} items remaining")
+    print("  answer each question; press enter on an empty line to skip the item")
+    while True:
+        item = session.take()
+        if item is None:
+            break
+        print()
+        print(format_item(item))
+        print(RUBRIC_TEXT)
+        answers: Dict[str, Any] = {}
+        skipped = False
+        try:
+            for q in ("supported_by_context", "contradicts_history",
+                      "presupposition_or_drift", "would_allow_generation"):
+                raw = input(f"  {q}: ").strip().lower()
+                if not raw:
+                    skipped = True
+                    break
+                answers[q] = raw
+            if not skipped:
+                raw = input("  confidence (1-5): ").strip()
+                answers["confidence"] = int(raw) if raw.isdigit() else raw
+                answers["rationale"] = input("  rationale: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if skipped:
+            print("  skipped")
+            continue
+        problems = validate_answers(answers)
+        if problems:
+            print("  invalid: " + "; ".join(problems) + " -- not recorded")
+            continue
+        session.record(item, answers)
+        print(f"  recorded ({len(session.records)} so far)")
+
+    print(f"[annotate] {json.dumps(session.close())}")
+    return 0
+
+
 def cmd_stress(args: argparse.Namespace) -> int:
     """Generalisation stress tests for the risk model."""
     from pathlib import Path
@@ -494,6 +603,28 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true")
     p.add_argument("--quiet", action="store_true")
     add(p, cmd_stress)
+
+    # human annotation
+    p = sub.add_parser("annotate", help="annotate the human-validation packet")
+    p.add_argument("--packet", default="data/annotations/human_validation_sample.jsonl")
+    p.add_argument("--out", default="data/annotations/annotations.jsonl")
+    p.add_argument("--code", default=None,
+                   help="annotator code (generated if omitted)")
+    p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--no-shuffle", action="store_true",
+                   help="keep the packet order instead of shuffling it")
+    p.add_argument("--dry-run", action="store_true",
+                   help="print the next item and the rubric, then exit")
+    add(p, cmd_annotate)
+
+    p = sub.add_parser("analyze-annotations",
+                       help="run the protocol's analysis over a file of annotations")
+    p.add_argument("--annotations", default="data/annotations/annotations.jsonl")
+    p.add_argument("--key", default="data/annotations/human_validation_key.jsonl")
+    p.add_argument("--out", default="results/raw/human_validation_report.json")
+    p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--json", action="store_true")
+    add(p, cmd_analyze_annotations)
 
     # serve
     p = sub.add_parser("serve", help="run the FastAPI service")

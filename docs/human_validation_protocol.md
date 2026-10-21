@@ -98,28 +98,80 @@ python3 scripts/simulate_human_annotations.py \
   --annotators 100 --n-annotations 1000 --seed 42
 ```
 
-Each simulated annotator has a stable personality: strictness about support,
-caution about allowing generation, a slip rate, a confidence bias, and a
-diligence level. Every annotation is marked `synthetic: true` and every file
-carries a warning.
-
 **This is not human validation and must never be reported as such.** The
-paper continues to describe human validation as pending. What the dry run
-gives is:
+paper continues to describe human validation as pending. Every annotation
+is marked `synthetic: true` and every file carries a warning.
 
-1. **A working analysis pipeline.** Inter-rater agreement
-   (Krippendorff's alpha, Fleiss' kappa), human-vs-model AUROC/AUPRC,
-   calibration by score band, action disagreement and the false-block rate
-   are all computed end to end before anyone is paid to annotate.
-2. **A noise floor.** The simulated crowd is deliberately noisy, so the
-   agreement figures it produces are a *lower bound* on what a real study
-   should expect. If real annotators agree less than the simulation does,
-   the rubric is the problem.
-3. **A protocol defect.** The reachability diagnostic splits the items by
-   the DiaHalu error type and shows that a support-based rubric recovers
-   fact-and-context errors at ~0.63 accuracy but reasoning errors at ~0.32 —
+### What the simulator models
+
+The point of a simulator is not random labels: it is labels with the
+**failure modes of real annotation**, so the pipeline is exercised against
+something realistic. The simulator models:
+
+- a single latent judgement ("is this answer supported?") that drives
+  correlated answers, the way a person answers consistently within an item
+  rather than independently per question;
+- **selective reading** — people skim long conversations, so their reading
+  of the history degrades with its length;
+- **genuine ambiguity** — an answer that is half-supported is uncertain for
+  a person, and the uncertainty is visible in the answers and in the
+  confidence;
+- **fatigue and order effects** — attention decays over a batch, and the
+  order of items matters;
+- **calibration drift** — some annotators get stricter over a session, others
+  more lenient;
+- **carryover** — a hard item makes the next one harder;
+- item-independent differences in strictness, caution, how much presupposition
+  they notice, and how verbose they are.
+
+The rationales are written in an annotator's voice: hedged, sometimes one
+clause and sometimes three, occasionally flagging their own uncertainty.
+
+### What the dry run found
+
+1. **A working analysis pipeline.** Inter-rater agreement, human-vs-model
+   AUROC/AUPRC, calibration by score band, action disagreement and the
+   false-block rate are all computed end to end before anyone is paid to
+   annotate.
+2. **A rubric defect.** The reachability diagnostic splits the items by the
+   DiaHalu error type and shows that a support-based rubric recovers
+   fact-and-context errors at ~0.60 accuracy but reasoning errors at ~0.55 —
    and the gap is *constructive*, not annotator noise. This is what
    motivated question 6 above.
+3. **A measurement caveat.** On the DiaHalu items there is **no evidence at
+   all**, so question 1 can only be judged against the conversation — and a
+   fabricated-but-in-context answer reads as supported. A support-based
+   rubric cannot separate those, which is a further reason the study needs
+   question 6.
+4. **A statistic that needed care.** The three yes/uncertain/no questions
+   have a "don't know" in the middle, which is not a midpoint between yes
+   and no. Krippendorff's *ordinal* metric assumes it is, and the ordinal
+   and nominal figures then diverge sharply. The analysis therefore reports
+   both and uses the **nominal** metric for those three scales, and the
+   ordinal one for the genuinely ordered action scale, which has no "don't
+   know" option.
+
+## Running the study
+
+The study was blocked on one thing: there was no way for an annotator to do
+the work. There is now.
+
+```bash
+# a person annotates, in their own terminal
+phc annotate \
+  --packet data/annotations/human_validation_sample.jsonl \
+  --out data/annotations/annotations.jsonl
+
+# then the protocol's analysis over the real labels
+phc analyze-annotations \
+  --annotations data/annotations/annotations.jsonl \
+  --out results/raw/human_validation_report.json
+```
+
+`docs/annotator_instructions.md` is the document to hand to an annotator. The
+session is resumable, the 40 intra-rater duplicates are not marked, and
+annotator codes are random and opaque, so a finished file can be shared
+without identifying anybody.
 
 ## Required Artifacts
 

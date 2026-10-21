@@ -155,7 +155,7 @@ on val only), `stats` (paired significance between two checkpoints).
 ## Tests
 
 ```bash
-python3 -m pytest tests -q        # 131 tests, ~75 s
+python3 -m pytest tests -q        # 140 tests, ~65 s
 ```
 
 Covers utils, memory, the five consistency engines, retrieval/features, risk
@@ -211,29 +211,57 @@ approximations, not official SelfCheckGPT or semantic-entropy reproductions.
 
 ## Human Validation (pending)
 
-A blinded, stratified annotation packet is prepared, and the analysis pipeline
-has been rehearsed against a **synthetic** annotation round:
+A blinded, stratified annotation packet is prepared, an annotator-facing
+instrument exists, and the analysis pipeline has been rehearsed against a
+**synthetic** annotation round:
 
 ```bash
 python3 scripts/prepare_human_validation.py      # blind packet + unblinded key
 python3 scripts/simulate_human_annotations.py     # 1,000 synthetic annotations
 ```
 
-The simulator's annotators judge the visible content with surface lexical
-checks plus per-annotator noise — deliberately a different mechanism from
-PHC-X, so the human-vs-model comparison is not circular. It produces
-inter-rater agreement (Krippendorff's alpha, Fleiss' kappa), human-vs-model
-AUROC/AUPRC, calibration by score band, action disagreement and the
-false-block rate.
+The simulator's annotators model the failure modes of real annotation: a
+single latent judgement that drives correlated answers, selective reading of
+long conversations, genuine ambiguity, fatigue and order effects, calibration
+drift, carryover, and item-independent differences in strictness and caution.
+They judge with a deliberately different mechanism from PHC-X, so the
+human-vs-model comparison is not circular. Their rationales are written in an
+annotator's voice.
 
 **This is a dry run, not a study.** Every artifact is marked `synthetic: true`
 and carries a warning; no human labels exist in this repository, and the
 paper describes human validation as pending.
 
-The dry run earned its keep by finding a defect in the rubric: a
-support-based question cannot reach a *reasoning* error whose facts are all
-present, so the protocol now also asks whether the reasoning is sound and
-whether the answer addresses the question.
+### Running the real study
+
+```bash
+phc annotate \
+  --packet data/annotations/human_validation_sample.jsonl \
+  --out data/annotations/annotations.jsonl
+
+phc analyze-annotations \
+  --annotations data/annotations/annotations.jsonl \
+  --out results/raw/human_validation_report.json
+```
+
+`docs/annotator_instructions.md` is the document to hand to an annotator.
+The session is resumable, the 40 intra-rater duplicates are not marked, and
+annotator codes are random and opaque.
+
+### What the dry run found
+
+- **The pipeline works** end to end, before anyone is paid to annotate.
+- **A rubric defect**: a support-based question cannot reach a *reasoning*
+  error whose facts are all present, and the DiaHalu items carry no evidence
+  at all, so the same question cannot be judged against a document. The
+  protocol now also asks whether the reasoning is sound and whether the
+  answer addresses the question.
+- **A statistic that needed care**: the three yes/uncertain/no questions have
+  a "don't know" in the middle, which is not a midpoint between yes and no.
+  Krippendorff's ordinal metric assumes it is, and the ordinal and nominal
+  figures diverge sharply. The analysis reports both and uses the **nominal**
+  metric for those three scales, the ordinal one for the genuinely ordered
+  action scale.
 
 ---
 

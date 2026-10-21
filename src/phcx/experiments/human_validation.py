@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import math
 import random
+import re
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -68,6 +69,69 @@ def _lexical_support(answer: str, context: str) -> float:
     return len(a & c) / len(a)
 
 
+_NUM_RE = re.compile(r"^\d[\d,]*\.?\d*%?$")
+_PROPER_RE = re.compile(r"\b[A-Z][A-Za-z0-9]{2,}\b")
+
+
+def _human_support(answer: str, evidence: str, history: str,
+                   history_weight: float = 1.0) -> float:
+    """How well the supplied material supports the answer, as a reader would judge it.
+
+    Plain lexical overlap is a poor model of what a person notices.  A reader
+    checks three things, and they are not equally weighted:
+
+    * whether the answer's *specific facts* -- its numbers and its named
+      entities -- appear in the material at all;
+    * whether the rest of its content is there;
+    * whether the material is simply not about the same thing.
+
+    The evidence and the history are *not* scored independently and averaged:
+    an answer that is fully in the evidence is fully supported, even if the
+    history says nothing about it.  The history is instead discounted by how
+    thoroughly a reader would have read it.
+
+    This is deliberately a different mechanism from PHC-X's similarity
+    (which is a hashed n-gram blend), so the human-vs-model comparison is
+    not circular.
+    """
+    if not answer.strip():
+        return 0.0
+    answer_tokens = set(_content_tokens(answer))
+    if not answer_tokens:
+        return 0.0
+    ev_tokens = set(_content_tokens(evidence))
+    hist_tokens = set(_content_tokens(history))
+
+    # 1. specific facts: a number or a name that appears nowhere in the
+    #    supplied material is the first thing a reader notices
+    a_nums = {t for t in answer_tokens if _NUM_RE.match(t)}
+    a_names = set(_PROPER_RE.findall(answer))
+    known_nums = {t for t in ev_tokens if _NUM_RE.match(t)} | \
+                 {t for t in hist_tokens if _NUM_RE.match(t)}
+    known_names = set(_PROPER_RE.findall(evidence)) | set(_PROPER_RE.findall(history))
+    missing_facts = 0.0
+    if a_nums:
+        missing_facts += len(a_nums - known_nums) / len(a_nums)
+    if a_names:
+        missing_facts += len(a_names - known_names) / len(a_names)
+    fact_penalty = missing_facts / 2.0 if (a_nums or a_names) else 0.0
+
+    # 2. the remaining content, counted once across both sources
+    plain = answer_tokens - a_nums
+    if plain:
+        in_ev = len(plain & ev_tokens) / len(plain)
+        in_hist = len(plain & hist_tokens) / len(plain)
+        content = min(1.0, in_ev + in_hist * history_weight)
+    else:
+        content = 1.0
+
+    support = content * (1.0 - fact_penalty)
+    if not evidence.strip() and not history.strip():
+        return 0.0
+    return float(max(0.0, min(1.0, support)))
+
+
+
 def _numeric_conflict(answer: str, context: str) -> bool:
     """Does the answer state a number that the context states differently?"""
     from ..utils.text import tokenize
@@ -93,21 +157,57 @@ def _has_presupposition_cue(prompt: str) -> bool:
     return any(cue in low for cue in _PRESUPPOSITION_CUES)
 
 
+#: The substantive order of each rubric answer scale, least to most.
+#:
+#: Krippendorff's *ordinal* metric assigns distances by rank, so the values
+#: must be ordered by the construct they measure and not alphabetically.
+#: Sorting "yes"/"uncertain"/"no" as strings puts "uncertain" at one end
+#: rather than between the other two, which quietly destroys the metric.
+ORDINAL_SCALES: Dict[str, Tuple[str, ...]] = {
+    # how well the context supports the answer
+    "supported_by_context": ("yes", "uncertain", "no"),
+    # how much the answer conflicts with the history
+    "contradicts_history": ("no", "uncertain", "yes"),
+    # how much presupposition or drift there is
+    "presupposition_or_drift": ("no", "uncertain", "yes"),
+    # how far the annotator is from letting the model answer
+    "would_allow_generation": ("allow", "retrieve", "clarify", "abstain"),
+}
+
+
+def _ordinal_codes(values: Sequence[Any],
+                   scale: Optional[Sequence[str]] = None) -> List[int]:
+    """Encode answers as ranks in their substantive order."""
+    if scale is None:
+        # numeric scales (confidence) are already ordered
+        out = []
+        for v in values:
+            try:
+                out.append(int(v))
+            except (TypeError, ValueError):
+                continue
+        return out
+    index = {v: i for i, v in enumerate(scale)}
+    return [index[v] for v in values if v in index]
+
+
 # ------------------------------------------------------------- krippendorff
 def krippendorff_alpha(
     ratings: Dict[Any, Sequence[float]],
     level_of_measurement: str = "ordinal",
+    scale: Optional[Sequence[Any]] = None,
 ) -> Optional[float]:
     """Krippendorff's alpha for (possibly missing) ratings.
 
     ``ratings`` maps a unit to the list of values it received.  Ordinal
-    differences are used, which is what the protocol asks for.
+    differences are used, which is what the protocol asks for; pass
+    ``scale`` to declare the substantive order of a non-numeric scale.
     """
-    usable: Dict[Any, List[float]] = {
-        unit: [v for v in vals if v is not None]
-        for unit, vals in ratings.items()
-    }
-    usable = {u: v for u, v in usable.items() if len(v) >= 2}
+    usable: Dict[Any, List[float]] = {}
+    for unit, vals in ratings.items():
+        codes = _ordinal_codes([v for v in vals if v is not None], scale)
+        if len(codes) >= 2:
+            usable[unit] = codes
     if not usable:
         return None
 
@@ -176,6 +276,58 @@ def fleiss_kappa(labels_by_item: Dict[Any, Sequence[int]], n_categories: int) ->
 
 
 # ------------------------------------------------------------------ simulate
+class _Annotator:
+    """One simulated annotator, with the quirks real ones have.
+
+    The point of a simulator is not to produce labels at random: it is to
+    produce labels with the *failure modes* of real annotation, so that the
+    analysis pipeline can be exercised against something realistic.  The
+    behaviours modelled here are:
+
+    * a single latent judgement ("is this answer supported?") that drives
+      correlated answers, the way a person answers consistently within an
+      item instead of independently per question;
+    * selective reading: people skim long conversations, so their reading of
+      the history degrades with its length;
+    * genuine ambiguity: an answer that is half-supported is uncertain for a
+      person, and the uncertainty is visible in the answers;
+    * fatigue and order effects: attention decays over a batch;
+    * calibration drift: some annotators get stricter over a session, others
+      more lenient;
+    * carryover: a hard item makes the next one harder;
+    * item-independent differences in strictness, caution, how much
+      presupposition they notice, and how verbose they are.
+    """
+
+    def __init__(self, code: str, rng: random.Random):
+        self.code = code
+        self.strictness = rng.betavariate(2.0, 2.0)   # lenient .. strict
+        self.caution = rng.betavariate(2.0, 2.0)     # generate .. retrieve/clarify
+        self.slip = rng.uniform(0.02, 0.10)           # chance of a careless answer
+        self.confidence_bias = rng.uniform(-0.6, 0.6)
+        self.read_depth = rng.uniform(0.5, 1.0)        # how much of the history is read
+        self.verbosity = rng.betavariate(2.0, 2.0)
+        self.notice_presupposition = rng.uniform(0.25, 0.95)
+        self.drift = rng.gauss(0.0, 0.035)            # calibration drift per item
+        self.fatigue = rng.uniform(0.0, 0.018)        # attention decay per item
+        self.seen = 0
+        self.prev_difficulty = 0.0
+
+    def state(self) -> Dict[str, Any]:
+        return {
+            "code": self.code, "seen": self.seen,
+            "strictness": round(self.strictness, 4),
+            "caution": round(self.caution, 4),
+            "read_depth": round(self.read_depth, 4),
+            "verbosity": round(self.verbosity, 4),
+            "notice_presupposition": round(self.notice_presupposition, 4),
+        }
+
+
+def _sigmoid(x: float) -> float:
+    return 1.0 / (1.0 + math.exp(-max(-30.0, min(30.0, x))))
+
+
 def simulate_annotations(
     packet: Sequence[Dict[str, Any]],
     key: Sequence[Dict[str, Any]],
@@ -185,12 +337,9 @@ def simulate_annotations(
 ) -> List[Dict[str, Any]]:
     """Produce ``n_annotations`` synthetic annotations over ``packet``.
 
-    Each simulated annotator has a stable personality: how strict they are
-    about support, how cautious they are about allowing generation, how often
-    they slip, and how well their stated confidence tracks their accuracy.
-    Every annotator is blind to the gold label -- they only see the prompt,
-    history, evidence and the proposed answer, and they judge it with
-    surface lexical checks.
+    Every simulated annotator has a stable personality and a state that
+    evolves over their batch.  They only see the prompt, the history, the
+    evidence and the proposed answer.
     """
     rng = random.Random(seed)
     by_id = {k["annotation_id"]: k for k in key}
@@ -198,21 +347,8 @@ def simulate_annotations(
     if not items:
         return []
 
-    annotators: List[Dict[str, Any]] = []
-    for a in range(n_annotators):
-        annotators.append({
-            "code": f"S{rng.randrange(1000, 9999)}",
-            # 0 = lenient (answers "yes" easily), 1 = strict
-            "strictness": rng.betavariate(2.0, 2.0),
-            # 0 = happy to generate, 1 = wants retrieval/clarification
-            "caution": rng.betavariate(2.0, 2.0),
-            # probability of a slip on any single question
-            "slip": rng.uniform(0.02, 0.12),
-            # how the stated confidence is biased (positive = overconfident)
-            "confidence_bias": rng.uniform(-0.6, 0.6),
-            # some annotators are more careful and get more right
-            "diligence": rng.uniform(0.55, 0.95),
-        })
+    annotators = [_Annotator(f"S{rng.randrange(1000, 9999)}", rng)
+                  for _ in range(n_annotators)]
 
     # assign work: every item gets several independent labels so that
     # inter-rater agreement is computable
@@ -228,20 +364,29 @@ def simulate_annotations(
                 assignment.append((i, rng.randrange(n_annotators)))
         while len(assignment) < n_annotations:
             assignment.append((rng.randrange(len(items)), rng.randrange(n_annotators)))
+    # each annotator works through their own items in sequence, so that
+    # fatigue and drift are order-dependent
+    per_annotator: Dict[int, List[int]] = {}
+    for pos, (item_idx, annot_idx) in enumerate(assignment):
+        per_annotator.setdefault(annot_idx, []).append(pos)
+    for positions in per_annotator.values():
+        rng.shuffle(positions)
 
     out: List[Dict[str, Any]] = []
-    for n, (item_idx, annot_idx) in enumerate(assignment):
-        item = items[item_idx]
+    for annot_idx, positions in per_annotator.items():
         annot = annotators[annot_idx]
-        answers = _simulate_one(item, annot, rng)
-        out.append({
-            "annotation_id": item["annotation_id"],
-            "annotator_code": annot["code"],
-            "round": 0,
-            **{q: answers[q] for q in RUBRIC_QUESTIONS},
-            "rationale": answers["rationale"],
-            "synthetic": True,
-        })
+        for pos in positions:
+            item_idx, _ = assignment[pos]
+            answers = _simulate_one(items[item_idx], annot, rng)
+            out.append({
+                "annotation_id": items[item_idx]["annotation_id"],
+                "annotator_code": annot.code,
+                "round": 0,
+                **{q: answers[q] for q in RUBRIC_QUESTIONS},
+                "rationale": answers["rationale"],
+                "synthetic": True,
+            })
+    out.sort(key=lambda a: (a["annotation_id"], a["annotator_code"]))
     return out
 
 
@@ -257,63 +402,111 @@ def _simulate_one(item: Dict[str, Any], annot: Dict[str, Any],
     ev_text = " ".join(
         str(e.get("text", e) if isinstance(e, dict) else e) for e in evidence
     )
-    context = f"{hist_text} {ev_text}".strip()
 
-    support = _lexical_support(answer, context) if (context or answer) else 0.0
-    strict = annot["strictness"]
-    slip = annot["slip"]
+    # -- what the annotator actually reads ---------------------------------
+    # people skim long conversations: the deeper the history, the less of it
+    # they take in -- but they do not stop reading entirely
+    skim = (0.45 + 0.55 * annot.read_depth) * (0.92 ** min(len(history), 8))
+    support = _human_support(answer, ev_text, hist_text, history_weight=skim)
 
-    # -- Q1: is the answer supported by the supplied context?
-    if not context:
-        base1 = "uncertain"
-    elif support >= 0.65:
-        base1 = "yes"
-    elif support <= 0.2:
-        base1 = "no"
+    # -- the latent judgement, and how hard the item is ---------------------
+    # an answer that is half-supported is genuinely ambiguous, and the
+    # uncertainty shows up in the answers rather than in a coin flip
+    ambiguity = 1.0 - abs(2.0 * support - 1.0)
+    if not (hist_text or ev_text):
+        ambiguity = 1.0
+
+    # fatigue and drift accumulate over a batch, but they are bounded: a
+    # tired annotator makes a few more errors, they do not become random
+    fatigue = max(-0.12, min(0.12, annot.fatigue * annot.seen))
+    drift = max(-0.15, min(0.15, annot.drift * annot.seen))
+
+    latent = 1.0 - support                       # 1 = clearly unsupported
+    latent += 0.30 * (annot.strictness - 0.5)    # item-independent bias
+    latent += fatigue                            # attention decay over a batch
+    latent += drift                              # calibration drift
+    latent += 0.08 * annot.prev_difficulty       # carryover from a hard item
+
+    sharpness = 0.20 + 0.85 * (1.0 - ambiguity)
+    p_unsupported = _sigmoid((latent - 0.5) / max(0.05, sharpness))
+
+    # -- Q1: is the answer supported by the supplied context? --------------
+    if not (hist_text or ev_text):
+        q1 = "uncertain"
     else:
-        base1 = "uncertain"
-    # a strict annotator turns marginal "yes" into "uncertain" and
-    # "uncertain" into "no"
-    if strict > 0.55 and base1 == "yes":
-        base1 = "uncertain"
-    if strict > 0.7 and base1 == "uncertain":
-        base1 = "no"
-    if strict < 0.35 and base1 == "uncertain":
-        base1 = "yes"
-    q1 = _flip(base1, YES_NO_UNCERTAIN, slip, rng)
+        r = rng.random()
+        if r < p_unsupported:
+            q1 = "no"
+        elif r < p_unsupported + 0.5 * ambiguity * (1.0 - p_unsupported):
+            q1 = "uncertain"
+        else:
+            q1 = "yes"
+    q1 = _flip(q1, YES_NO_UNCERTAIN, annot.slip * (0.5 + ambiguity), rng)
 
-    # -- Q2: does it contradict the conversation history?
-    base2 = "yes" if (hist_text and _numeric_conflict(answer, hist_text)) else "no"
-    q2 = _flip(base2, YES_NO_UNCERTAIN, slip, rng)
+    # -- Q2: does it contradict the conversation history? -------------------
+    # correlated with Q1: someone who thinks the answer is unsupported is
+    # more likely to also see a conflict
+    conflict = bool(hist_text) and _numeric_conflict(answer, hist_text)
+    p_conflict = min(0.95, p_unsupported * (0.55 if conflict else 0.18))
+    r = rng.random()
+    if r < p_conflict:
+        q2 = "yes"
+    elif r < p_conflict + 0.25 * ambiguity:
+        q2 = "uncertain"
+    else:
+        q2 = "no"
+    q2 = _flip(q2, YES_NO_UNCERTAIN, annot.slip * 0.6, rng)
 
-    # -- Q3: unsupported presupposition or entity/time drift?
-    drift = _has_presupposition_cue(prompt) and support < 0.5
-    base3 = "yes" if drift else "no"
-    if strict < 0.3 and drift:
-        base3 = "uncertain"
-    q3 = _flip(base3, YES_NO_UNCERTAIN, slip, rng)
+    # -- Q3: unsupported presupposition or entity/time drift? ---------------
+    # whether an annotator notices at all is a property of the annotator
+    has_cue = _has_presupposition_cue(prompt)
+    if has_cue and support < 0.5:
+        p_notice = annot.notice_presupposition * (0.5 + 0.5 * p_unsupported)
+    else:
+        p_notice = 0.04
+    r = rng.random()
+    if r < p_notice:
+        q3 = "yes"
+    elif r < p_notice + 0.2 * ambiguity:
+        q3 = "uncertain"
+    else:
+        q3 = "no"
+    q3 = _flip(q3, YES_NO_UNCERTAIN, annot.slip * 0.6, rng)
 
-    # -- Q4: would you allow generation without retrieval or clarification?
-    caution = annot["caution"]
-    if q1 == "no" and q2 == "yes":
-        base4 = "abstain"
-    elif q1 == "no" or q2 == "yes" or q3 == "yes":
-        base4 = "clarify" if caution > 0.5 else "retrieve"
-    elif q1 == "uncertain":
-        base4 = "retrieve" if caution > 0.35 else "allow"
+    # -- Q4: would you allow generation without retrieval or clarification? --
+    # People decide this from their overall read of the item, not by
+    # propagating three noisy answers, so the action follows the latent
+    # judgement with only a light pull from what they just said.
+    if latent > 0.62:
+        base4 = "abstain" if (annot.caution > 0.65 and q1 != "yes") else "clarify"
+    elif latent > 0.34:
+        base4 = "clarify" if (annot.caution > 0.7 and q2 == "yes") else "retrieve"
     else:
         base4 = "allow"
-    if caution > 0.8 and base4 == "allow":
+    # mild anchoring: a little pull towards the action implied by their Q1
+    if q1 == "no" and base4 == "allow" and rng.random() < 0.5:
         base4 = "retrieve"
-    if caution < 0.2 and base4 in ("clarify", "abstain"):
+    if q1 == "yes" and base4 in ("clarify", "abstain") and rng.random() < 0.4:
         base4 = "retrieve"
-    q4 = _flip(base4, ACTIONS, slip * 0.6, rng)
+    if annot.caution > 0.8 and base4 == "allow":
+        base4 = "retrieve"
+    if annot.caution < 0.2 and base4 in ("clarify", "abstain"):
+        base4 = "retrieve"
+    q4 = _flip(base4, ACTIONS, annot.slip * 0.5, rng)
 
-    # -- Q5: confidence and rationale
-    definiteness = {"yes": 1.0, "uncertain": 0.5, "no": 1.0}.get(q1, 0.5)
-    raw_conf = 2.0 + 2.6 * definiteness + rng.gauss(0, 0.7)
-    conf = int(max(1, min(5, round(raw_conf + annot["confidence_bias"]))))
-    rationale = _rationale(q1, q2, q3, q4, support)
+    # -- Q5: confidence and rationale --------------------------------------
+    # confidence tracks how decisive the item felt *to them*, and an
+    # uncertain answer is never confident
+    if q1 == "uncertain":
+        decisiveness = 0.25
+    else:
+        decisiveness = 0.55 + 0.45 * (1.0 - ambiguity)
+    raw_conf = 1.6 + 2.9 * decisiveness + rng.gauss(0, 0.65)
+    conf = int(max(1, min(5, round(raw_conf + annot.confidence_bias))))
+    rationale = _rationale(q1, q2, q3, q4, support, annot, rng)
+
+    annot.prev_difficulty = ambiguity
+    annot.seen += 1
 
     return {
         "supported_by_context": q1,
@@ -333,20 +526,111 @@ def _flip(base: str, options: Sequence[str], slip: float,
     return base
 
 
-def _rationale(q1: str, q2: str, q3: str, q4: str, support: float) -> str:
-    bits = []
-    if q1 == "yes":
-        bits.append("the answer is supported by the supplied context")
-    elif q1 == "no":
-        bits.append("the answer is not supported by the supplied context")
-    else:
-        bits.append("the supplied context does not settle the question")
+#: Rationale fragments, grouped by the answer they explain.  Real annotators
+#: do not write in a fixed template: they hedge, they explain in one clause
+#: or in three, and they occasionally note that they had to look twice.
+_SUPPORTED = (
+    "the context covers this",
+    "it's stated in the provided material",
+    "the facts are all there",
+    "straightforwardly supported by the context",
+    "the context says as much",
+)
+_UNSUPPORTED = (
+    "nothing in the context mentions this",
+    "the context never covers it",
+    "this isn't in what I was given",
+    "the provided material doesn't say",
+    "no support for this in the context",
+    "the answer goes beyond the context",
+)
+_UNCERTAIN = (
+    "the context is too vague to tell",
+    "partly covered, partly not",
+    "can't tell from what's here",
+    "not enough to decide",
+    "only partially addressed",
+)
+_CONTRADICTS = (
+    "it clashes with what was said earlier",
+    "this contradicts the earlier turn",
+    "the history says something different",
+    "it conflicts with the conversation",
+)
+_PRESUPPOSES = (
+    "it assumes something the context never establishes",
+    "there's a presupposition the context doesn't back",
+    "it takes the earlier claim for granted",
+)
+_ALLOW = (
+    "fine to generate as is",
+    "no need to fetch anything else",
+    "safe to answer directly",
+)
+_RETRIEVE = (
+    "worth pulling more context first",
+    "I'd retrieve before answering",
+    "better to check the source first",
+)
+_CLARIFY = (
+    "I'd ask before answering",
+    "needs a clarifying question first",
+    "too ambiguous to answer as asked",
+)
+_ABSTAIN = (
+    "shouldn't answer this one",
+    "I'd refuse rather than guess",
+    "not answerable, so abstain",
+)
+
+_PHRASES: Dict[Tuple[str, str], Tuple[str, ...]] = {
+    ("supported_by_context", "yes"): _SUPPORTED,
+    ("supported_by_context", "no"): _UNSUPPORTED,
+    ("supported_by_context", "uncertain"): _UNCERTAIN,
+    ("contradicts_history", "yes"): _CONTRADICTS,
+    ("contradicts_history", "no"): ("no conflict with the history", "consistent with what was said"),
+    ("contradicts_history", "uncertain"): ("hard to tell if it conflicts",),
+    ("presupposition_or_drift", "yes"): _PRESUPPOSES,
+    ("presupposition_or_drift", "no"): ("no drift or presupposition I can see",),
+    ("presupposition_or_drift", "uncertain"): ("maybe some drift, hard to pin down",),
+    ("would_allow_generation", "allow"): _ALLOW,
+    ("would_allow_generation", "retrieve"): _RETRIEVE,
+    ("would_allow_generation", "clarify"): _CLARIFY,
+    ("would_allow_generation", "abstain"): _ABSTAIN,
+}
+
+_TERSE = ("{why}.", "{why}.")
+_VERBOSE = ("{why}; {extra}.", "{why}. {extra}.", "{why}, and {extra}.")
+
+
+def _rationale(q1: str, q2: str, q3: str, q4: str, support: float,
+               annot: "_Annotator", rng: random.Random) -> str:
+    """A free-text rationale in the annotator's own voice."""
+    why = rng.choice(_PHRASES.get(("supported_by_context", q1), ("",)))
+    extra_bits = []
     if q2 == "yes":
-        bits.append("it conflicts with an earlier turn")
+        extra_bits.append(rng.choice(_PHRASES[("contradicts_history", "yes")]))
     if q3 == "yes":
-        bits.append("it presupposes something the context does not establish")
-    bits.append(f"so the right call is to {q4}")
-    return "; ".join(bits) + "."
+        extra_bits.append(rng.choice(_PHRASES[("presupposition_or_drift", "yes")]))
+    if q1 == "no" and q4 != "allow":
+        extra_bits.append(rng.choice(_PHRASES[("would_allow_generation", q4)]))
+    if q1 == "uncertain":
+        extra_bits.append("I'd rather not commit")
+    extra = ", and ".join(extra_bits) if extra_bits else rng.choice(
+        ("so I'd go ahead", "nothing else stands out", "that's the main thing")
+    )
+    template = rng.choice(_VERBOSE if annot.verbosity > 0.55 else _TERSE)
+    text = template.format(why=why, extra=extra)
+    # people occasionally flag their own uncertainty
+    if q1 == "uncertain" and rng.random() < 0.35:
+        text += " Might be wrong on this one."
+    # capitalise each sentence
+    parts = [p.strip() for p in text.split(". ")]
+    text = ". ".join(p[:1].upper() + p[1:] if p else p for p in parts)
+    if not text.endswith("."):
+        text += "."
+    return text
+
 
 
 # ------------------------------------------------------------------ analyse
@@ -399,15 +683,31 @@ def analyze_annotations(
             item: [a.get(question) for a in rows if a.get(question) is not None]
             for item, rows in by_id.items()
         }
-        alpha = krippendorff_alpha(ratings, "ordinal")
+        scale = ORDINAL_SCALES.get(question)
+        ordinal = krippendorff_alpha(ratings, "ordinal", scale=scale)
+        nominal = krippendorff_alpha(ratings, "nominal", scale=scale)
         encoded = {
-            item: [values.index(v) for v in vals if v in values]
+            item: _ordinal_codes(vals, scale)
             for item, vals in ratings.items()
         }
         kappa = fleiss_kappa(encoded, len(values))
+        # The three yes/uncertain/no questions have a "don't know" in the
+        # middle, which is not a midpoint between yes and no: the ordinal
+        # difference function assumes it is, and the two metrics then
+        # disagree sharply.  The nominal metric is the right one for those
+        # scales; the ordinal one is right for the genuinely ordered action
+        # scale, which has no "don't know".
+        has_dont_know = "uncertain" in values
         agreement[question] = {
-            "krippendorff_alpha": round(alpha, 5) if alpha is not None else None,
+            "krippendorff_alpha": round(ordinal, 5) if ordinal is not None else None,
+            "krippendorff_alpha_nominal": round(nominal, 5) if nominal is not None else None,
+            "primary": "krippendorff_alpha_nominal" if has_dont_know else "krippendorff_alpha",
+            "primary_value": round(nominal if has_dont_know else ordinal, 5)
+            if (nominal if has_dont_know else ordinal) is not None else None,
             "fleiss_kappa": round(kappa, 5) if kappa is not None else None,
+            "ordinal_scale": list(scale) if scale else None,
+            "note": ("the middle option is 'don't know', not a midpoint, so the "
+                     "nominal metric is used") if has_dont_know else None,
         }
     conf_ratings = {
         item: [a.get("confidence") for a in rows if a.get("confidence") is not None]
