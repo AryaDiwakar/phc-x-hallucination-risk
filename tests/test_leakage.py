@@ -139,3 +139,18 @@ def test_leave_one_category_out_runs_and_reports_per_category(cfg, tmp_path):
     for entry in per:
         assert "category" in entry and "n" in entry
     assert out.exists()
+
+
+def test_leakcontrol_model_selection_is_validation_only():
+    """The leak-control model was selected without looking at its test set."""
+    report_path = ROOT / "reports" / "model_selection_leakcontrol.json"
+    if not report_path.exists():
+        pytest.skip("run scripts/sweep_leakcontrol_models.py first")
+    report = __import__("json").loads(report_path.read_text())
+    assert report["validation_only"] is True
+    assert report["test_split_used_for_selection"] is False
+    assert report["selected"]["name"] == "xgb_d3"
+    # The selected model has to beat the prior RF on validation, across seeds.
+    candidates = {c["name"]: c for c in report["candidates"]}
+    assert (candidates["xgb_d3"]["validation"]["auroc"]["mean"] >
+            candidates["rf_current"]["validation"]["auroc"]["mean"])

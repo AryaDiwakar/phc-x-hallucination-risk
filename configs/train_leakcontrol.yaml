@@ -27,11 +27,14 @@ features:
   use_whitebox: false
 
 model:
-  name: rf
+  # Selected on validation only: XGBoost depth 3 beat the RF baseline in
+  # mean AUROC across seeds 42/123/2024 (0.995 vs 0.978).  The held-out test
+  # split is used only for the final, one-time comparison.
+  name: xgb
   hyperparameters:
     n_estimators: 300
-    max_depth: 8
-    min_samples_leaf: 5
+    max_depth: 3
+    learning_rate: 0.03
 
 calibration:
   method: platt

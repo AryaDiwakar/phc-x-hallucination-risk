@@ -26,16 +26,16 @@ reaches AUROC 0.808 without reading the conversation. On the leak-controlled
 variant — one shared prompt pool, so the question cannot identify the risk
 type — the prompt-only ablation collapses to chance while the model holds:
 
-| Metric | PHC-X, leak-controlled (n = 107) | PHC-X, standard (n = 161) | Heuristic (standard) |
+| Metric | PHC-X, leak-controlled (XGB, n = 107) | PHC-X, standard (RF, n = 161) | Heuristic (standard) |
 |---|---|---|---|
-| AUROC | **0.961** | 0.987 [0.972, 0.996] (1000× bootstrap CI) | 0.724 |
-| AUPRC | **0.981** | 0.992 | 0.852 |
-| F1 @ tuned threshold | **0.928** (P 0.970 / R 0.889) | 0.947 (P 0.925 / R 0.971) | 0.716 |
-| ECE (10-bin) | 0.043 | 0.050 (0.092 uncalibrated) | 0.252 |
-| Multi-seed AUROC | 0.9619 ± 0.0009 (seeds 42 / 123 / 2024) | 0.9867 ± 0.0002 | — |
+| AUROC | **0.973** | 0.987 [0.972, 0.996] (1000× bootstrap CI) | 0.724 |
+| AUPRC | **0.988** | 0.992 | 0.852 |
+| F1 @ tuned threshold | **0.908** (P 0.863 / R 0.958) | 0.947 (P 0.925 / R 0.971) | 0.716 |
+| ECE (10-bin) | 0.067 | 0.050 (0.092 uncalibrated) | 0.252 |
+| Multi-seed AUROC | 0.9724 ± 0.0007 (seeds 42 / 123 / 2024) | 0.9867 ± 0.0002 | — |
 | *Template lookup (leakage probe)* | *0.635* | *0.808* | *—* |
 | *Prompt-only ablation* | *0.434 (chance)* | *0.853* | *—* |
-| Action-level gates | **PASS** (coverage 52.3 %, 90.3 % caught, generated-turn rate 0.100 vs base 0.673) | **PASS** (coverage 52.8 %, 97.1 % caught, generated-turn rate 0.021 vs base 0.634) | — |
+| Action-level gates | **PASS** (coverage 50.5 %, 95.8 % caught, generated-turn rate 0.080 vs base 0.673) | **PASS** (coverage 52.8 %, 97.1 % caught, generated-turn rate 0.021 vs base 0.634) | — |
 
 The prompt-only figure on the standard benchmark is a memorised lookup, not
 a measure of what the prompt carries; the leak-controlled column is the
@@ -68,13 +68,16 @@ phc ablation --config configs/ablation.yaml \
   --data data/phc_conversation_leakcontrol
 ```
 
-| | PHC-Conversation | leak-controlled |
+| | PHC-Conversation (RF) | leak-controlled (XGBoost depth 3) |
 |---|---:|---:|
 | Templates identifying one category | 84.2 % | 0.0 % |
 | Template lookup AUROC | 0.808 | 0.635 |
 | A: prompt only | 0.853 | **0.434** (chance) |
-| E: + history, provenance, evidence | 0.985 | 0.964 |
-| F: full | 0.987 | **0.961** |
+| B: prompt + history | 0.850 | 0.709 |
+| C: + provenance | 0.885 | 0.710 |
+| D: + contradiction | 0.900 | 0.707 |
+| E: + evidence | 0.985 | 0.974 |
+| F: full | 0.987 | **0.973** |
 
 The prompt-only ablation collapses to chance while the full model barely
 moves. The original 0.853 was an artifact; the framework's discrimination
@@ -95,10 +98,15 @@ was already coming from the conversation.
 Ablation AUROC (standard benchmark): `A_prompt_only` 0.852 → `B` 0.850 →
 `C` 0.885 → `D` 0.900 → `E_history_provenance_evidence` 0.985 →
 `F_full` 0.987. On the leak-controlled variant the same ladder reads
-0.434 → 0.789 → 0.793 → 0.804 → 0.964 → 0.961, and the ordering is the one
-the method section claims: history and provenance get you to 0.793,
-contradiction adds a little, and evidence coverage is the single largest
-contributor.
+0.434 → 0.709 → 0.710 → 0.707 → 0.974 → 0.973, and the ordering is the one
+the method section claims: prompt alone is chance; history/provenance and
+contradiction help, and evidence coverage is the largest contributor.
+
+The leak-controlled model is XGBoost (depth 3), selected by a 12-candidate,
+three-seed validation-only sweep: mean validation AUROC 0.995 versus 0.978
+for the previous RF. Its untouched test AUROC is 0.973 (0.972 ± 0.001 over
+three seeds), with the action safety gates still passing. Reproduce the
+selection with `python3 scripts/sweep_leakcontrol_models.py`.
 
 The cost-sensitive threshold search is stable across seeds: multi-seed F1 is
 0.946 ± 0.002. The coverage
@@ -156,7 +164,7 @@ on val only), `stats` (paired significance between two checkpoints).
 ## Tests
 
 ```bash
-python3 -m pytest tests -q        # 148 tests, ~65 s
+python3 -m pytest tests -q        # 149 tests, ~65 s
 ```
 
 Covers utils, memory, the five consistency engines, retrieval/features, risk

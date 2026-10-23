@@ -273,6 +273,7 @@ def render_tables(stats: Dict[str, Any]) -> str:
         main_ab = dict(stats.get("ablation_ranking") or [])
         lc_ab = dict(lc.get("ablation_ranking") or [])
         rows = [
+            ("Classifier", "Random Forest", "XGBoost (depth 3; validation-selected)"),
             ("Templates identifying one category",
              f"{_f((main_probe.get('frac_templates_uniquely_categorised') or 0.0) * 100, 1)}\\%",
              f"{_f((lc_probe.get('frac_templates_uniquely_categorised') or 0.0) * 100, 1)}\\%"),

@@ -114,7 +114,7 @@ conversation, because each category's prompt template identifies the category
 and the categories have very different base rates. On a leak-controlled
 variant of the benchmark — one shared prompt pool, so the question cannot
 identify the risk type — that lookup table falls to 0.635 and the prompt-only
-ablation collapses to 0.434 (chance) while the full model holds 0.961. See
+   ablation collapses to 0.434 (chance) while the full model holds 0.973. See
 `docs/leakage_control.md`.
 
 The external results now say something more precise than "generalization

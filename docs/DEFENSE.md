@@ -125,7 +125,7 @@ where `unsourced.json` has the assistant turn plain, and `sourced.json` has
 | It works | `phc risk --prompt "..."` | risk 0.89 → RETRIEVE, in **20 ms** |
 | It beats a transparent baseline | `phc report` | AUROC **0.987** vs heuristic **0.724** |
 | It is not a prompt classifier | `phc ablation --config configs/ablation.yaml` | prompt-only **0.853**, but a *template lookup table* also gets **0.808** — so that number is an artifact |
-| …and here is the proof | `phc ablation --config configs/ablation.yaml --data data/phc_conversation_leakcontrol` | prompt-only collapses to **0.434** (chance) while the full model holds **0.961** |
+| …and here is the proof | `phc ablation --config configs/ablation.yaml --data data/phc_conversation_leakcontrol` | prompt-only collapses to **0.434** (chance) while the full model holds **0.973** with XGBoost depth 3 |
 | It is calibrated | `phc report` | ECE **0.050** (uncalibrated 0.092) |
 | It is not seed-luck | `phc train --config configs/train.yaml --seeds 42,123,2024` | AUROC **0.9867 ± 0.0002** |
 | The intervention is safe | `phc benchmark` | gates **PASS** — generated turns hallucinate at **0.021** vs base rate **0.633**; **97.1 %** of positives caught; **52.8 %** coverage |
@@ -146,7 +146,7 @@ and the one a reviewer will attack.
 templates reaches **0.808** without reading the conversation, because each
 category's template identifies the category. So we built a leak-controlled
 variant with one shared prompt pool: the prompt-only ablation collapses to
-**0.434** (chance) and the full model holds **0.961**. The signal was in the
+**0.434** (chance) and the full model holds **0.973**. The signal was in the
 conversation all along; the artifact was available to baselines, not to the
 model.
 

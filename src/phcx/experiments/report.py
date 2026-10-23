@@ -170,6 +170,7 @@ def run_report(
     leak_bench = _load_json(results_dir / "benchmark_phcx_leakcontrol.json")
     leak_summary = _load_json(Path("data/phc_conversation_leakcontrol") / "build_summary.json")
     leak_train = _load_json(results_dir / "phcx_leakcontrol.json")
+    model_selection = _load_json(Path("reports/model_selection_leakcontrol.json"))
     leak_splits = load_splits("data/phc_conversation_leakcontrol")
     if leak or leak_summary:
         block: Dict[str, Any] = {}
@@ -182,6 +183,24 @@ def run_report(
                 "gold_verified_agreement": leak_summary.get("gold_verified_agreement"),
             }
             block["dataset"]["n_test"] = (leak_summary.get("split_sizes") or {}).get("test")
+        if model_selection:
+            selected = model_selection.get("selected") or {}
+            block["model_selection"] = {
+                "validation_only": model_selection.get("validation_only"),
+                "selection_metric": model_selection.get("selection_metric"),
+                "selected": selected,
+                "model": selected.get("model"),
+                "hyperparameters": selected.get("hyperparameters"),
+                "candidates": [
+                    {
+                        "name": c.get("name"),
+                        "model": c.get("model"),
+                        "hyperparameters": c.get("hyperparameters"),
+                        "validation": c.get("validation"),
+                    }
+                    for c in (model_selection.get("candidates") or [])
+                ],
+            }
         if leak_splits:
             block["leakage_probe"] = _leakage_probe(leak_splits)
         if leak_train and isinstance(leak_train.get("test"), dict):

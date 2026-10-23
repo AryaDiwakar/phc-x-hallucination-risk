@@ -30,8 +30,8 @@ in the main results table, and in the README.
 
 ## The leak-controlled variant
 
-Same generator, same families, same label logic, same family split, same
-model, same hyper-parameters, same protocol. Two changes only:
+Same generator, same families, same label logic, same family split and same
+feature/training protocol. Two benchmark changes:
 
 1. **Every category draws its prompt from one shared pool**
    (`NEUTRAL_PROMPTS`), so the prompt carries no category information.
@@ -41,11 +41,18 @@ model, same hyper-parameters, same protocol. Two changes only:
    `temporal_inconsistency`, `unsupported_presupposition`,
    `referential_ambiguity` and `short_benign` are excluded.
 
+The leak-controlled variant uses XGBoost depth 3 rather than the standard
+benchmark's RF. It was selected by a three-seed validation-only sweep, not by
+looking at test results. Details are recorded in
+`reports/model_selection_leakcontrol.json`; reproduce the sweep with
+`python3 scripts/sweep_leakcontrol_models.py`.
+
 ```bash
 phc build-dataset --config configs/dataset_leakcontrol.yaml \
   --out data/phc_conversation_leakcontrol
 phc train --config configs/train_leakcontrol.yaml \
   --data data/phc_conversation_leakcontrol --seeds 42,123,2024
+python3 scripts/sweep_leakcontrol_models.py  # validation-only model selection
 phc benchmark --config configs/train_leakcontrol.yaml \
   --data data/phc_conversation_leakcontrol
 phc ablation --config configs/ablation.yaml \
@@ -61,10 +68,14 @@ phc ablation --config configs/ablation.yaml \
 | templates identifying one category | 84.2 % | 0.0 % |
 | template lookup AUROC | 0.808 | 0.635 |
 | A: prompt only | 0.853 | **0.434** |
-| C: + history, provenance | 0.887 | 0.793 |
-| D: + contradiction | 0.900 | 0.804 |
-| E: + evidence | 0.985 | 0.964 |
-| F: full | 0.987 | **0.961** |
+| B: prompt + history | 0.850 | 0.709 |
+| C: + provenance | 0.885 | 0.710 |
+| D: + contradiction | 0.900 | 0.707 |
+| E: + evidence | 0.985 | 0.974 |
+| F: full | 0.987 | **0.973** |
+| model | RF | XGBoost depth 3 |
+| test AUROC, seed 42 | 0.987 | 0.973 |
+| test AUROC, 3-seed mean ± SD | 0.9867 ± 0.0002 | **0.9724 ± 0.0007** |
 | action-level gates | PASS | PASS |
 
 Three things follow.
@@ -73,14 +84,14 @@ Three things follow.
 (0.434) once the prompt cannot identify the risk type.
 
 **The framework's discrimination was never resting on it.** The full model
-moves only from 0.987 to 0.961, so the conversation state and the evidence
+moves only from 0.987 to 0.973, so the conversation state and the evidence
 were carrying the signal all along — the artifact was available to
 *baselines*, not to the model.
 
 **The ablation ladder becomes interpretable.** With a clean prompt, the
-order is the one the method section claims: history and provenance reach
-0.793, contradiction adds 0.011, and evidence coverage is the single
-largest contributor at 0.964.
+prompt alone is at chance. Adding history raises AUROC to 0.709; provenance
+adds little on this small split; evidence coverage raises it to 0.974. The
+full model holds 0.973.
 
 ## Generalisation stress tests
 
@@ -136,7 +147,7 @@ pending.
 ## How the paper uses this
 
 The paper and the README **lead with the leak-controlled number** (AUROC
-0.961, n = 107) and report the standard benchmark (0.987, n = 161) beside
+0.973, n = 107) and report the standard benchmark (0.987, n = 161) beside
 it, with the template-lookup probe in both columns. The reasoning: the
 standard benchmark's 0.987 is a real measurement, but a reader cannot tell
 from it how much of it came from the conversation. The leak-controlled
