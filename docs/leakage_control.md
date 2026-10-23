@@ -62,8 +62,8 @@ phc ablation --config configs/ablation.yaml \
 | template lookup AUROC | 0.808 | 0.635 |
 | A: prompt only | 0.853 | **0.434** |
 | C: + history, provenance | 0.887 | 0.793 |
-| D: + contradiction | 0.901 | 0.804 |
-| E: + evidence | 0.984 | 0.964 |
+| D: + contradiction | 0.900 | 0.804 |
+| E: + evidence | 0.985 | 0.964 |
 | F: full | 0.987 | **0.961** |
 | action-level gates | PASS | PASS |
 
@@ -93,10 +93,10 @@ annotators.
 
 | Trained on | Scored against | AUROC |
 |---|---|---:|
-| `label_gold` | `label_gold` (its own source) | 0.983 |
+| `label_gold` | `label_gold` (its own source) | 0.982 |
 | `label_gold` | `label_verified` (unseen source) | **0.779** |
-| `label_verified` | `label_verified` (its own source) | 0.989 |
-| `label_verified` | `label_gold` (unseen source) | **0.695** |
+| `label_verified` | `label_verified` (its own source) | 0.988 |
+| `label_verified` | `label_gold` (unseen source) | **0.671** |
 
 The model keeps a substantial part of its discrimination against a label
 source it has never seen, which is evidence that it learned something about
@@ -115,8 +115,8 @@ model has to detect a risk type it has never been trained on.
 | `contradictory_context` | 12 | 0.925 |
 | `temporal_inconsistency` | 10 | 0.917 |
 | `referential_ambiguity` | 20 | 0.874 |
-| `supported_context` | 18 | 0.195 |
 | `unsupported_context` | 18 | 0.369 |
+| `supported_context` | 18 | 0.195 |
 
 Mean **0.804 ± 0.285** over 9 categories (two further categories have a
 single-class held-out split, so no AUROC is defined). The framework transfers

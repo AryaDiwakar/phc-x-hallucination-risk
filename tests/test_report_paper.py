@@ -1,6 +1,7 @@
 """Report + paper pipeline tests (static rendering, no LaTeX engine needed)."""
 import json
 import re
+from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
 import pytest
@@ -83,6 +84,36 @@ def test_macros_contain_headline_numbers(stats):
     tex = render_macros(stats)
     assert f"{stats['model']['auroc']:.3f}" in tex
     assert "PASS" in tex or "FAIL" in tex
+
+
+def test_readme_headline_table_matches_generated_stats(stats):
+    """The README is user-facing results; don't let its numbers go stale."""
+    readme = (ROOT / "README.md").read_text()
+    leak = stats["leak_control"]["model"]
+    main = stats["model"]
+    heuristic = stats["heuristic_baseline"]
+
+    expected_rows = (
+        f"| AUROC | **{leak['auroc']:.3f}** | {main['auroc']:.3f}",
+        f"| AUPRC | **{leak['auprc']:.3f}** | {main['auprc']:.3f}",
+        f"| F1 @ tuned threshold | **{leak['f1']:.3f}** "
+        f"(P {leak['precision']:.3f} / R {leak['recall']:.3f}) | {main['f1']:.3f}",
+        f"{heuristic['auroc']:.3f} |",
+    )
+    for row in expected_rows:
+        assert row in readme, f"README headline table is stale; missing {row!r}"
+
+    def display(value):
+        return str(Decimal(str(value)).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP))
+
+    gates = stats["benchmark"]["gates"]
+    gate_row = (
+        f"coverage {gates['coverage'] * 100:.1f} %, "
+        f"{gates['positives_caught'] * 100:.1f} % caught, "
+        f"generated-turn rate {display(gates['risk_generated'])} "
+        f"vs base {display(gates['risk_overall'])}"
+    )
+    assert gate_row in readme, f"README action gates are stale; missing {gate_row!r}"
 
 
 def test_tables_escape_underscores_and_render(stats):

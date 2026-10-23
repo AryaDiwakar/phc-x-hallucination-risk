@@ -47,13 +47,13 @@ unsupported\_presupposition & 11 & 1.000 & 1.000 & 0.000 \\
 \toprule
 ID & Feature group & AUROC & $\Delta$ \\
 \midrule
-F & Full black-box feature set & 0.986 \\
+F & Full black-box feature set & 0.987 \\
 G & Full + white-box model signals & 0.986 & -0.000 \\
-E & History + provenance + evidence & 0.984 & -0.002 \\
-D & Prompt + history + provenance + contradiction & 0.901 & -0.085 \\
-C & Prompt + history + provenance & 0.887 & -0.099 \\
-B & Prompt + history & 0.853 & -0.133 \\
-A & Prompt only & 0.853 & -0.133 \\
+E & History + provenance + evidence & 0.985 & -0.002 \\
+D & Prompt + history + provenance + contradiction & 0.900 & -0.087 \\
+C & Prompt + history + provenance & 0.885 & -0.102 \\
+A & Prompt only & 0.852 & -0.135 \\
+B & Prompt + history & 0.850 & -0.137 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -99,11 +99,11 @@ Quantity & PHC-Conversation & leak-controlled \\
 \midrule
 Templates identifying one category & 84.2\% & 0.0\% \\
 Template lookup AUROC & 0.808 & 0.635 \\
-A: prompt only & 0.853 & 0.434 \\
-C: + history, provenance & 0.887 & 0.793 \\
-D: + contradiction & 0.901 & 0.804 \\
-E: + evidence & 0.984 & 0.964 \\
-F: full & 0.986 & 0.961 \\
+A: prompt only & 0.852 & 0.434 \\
+C: + history, provenance & 0.885 & 0.793 \\
+D: + contradiction & 0.900 & 0.804 \\
+E: + evidence & 0.985 & 0.964 \\
+F: full & 0.987 & 0.961 \\
 \bottomrule
 \end{tabular}
 \end{table}

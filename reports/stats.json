@@ -5,7 +5,7 @@
   "label_rate": 0.63354,
   "threshold": 0.31,
   "n_boot": 1000,
-  "generated_at": "2026-10-21T18:14:04",
+  "generated_at": "2026-10-23T14:57:51",
   "dataset": {
     "n_rows": 1100,
     "n_families": 238,
@@ -361,7 +361,7 @@
       {
         "bin_lower": 0.2,
         "bin_upper": 0.30000000000000004,
-        "mean_predicted": 0.25907195701312286,
+        "mean_predicted": 0.2590719570131229,
         "empirical_rate": 0.0,
         "count": 5
       },
@@ -396,7 +396,7 @@
       {
         "bin_lower": 0.7000000000000001,
         "bin_upper": 0.8,
-        "mean_predicted": 0.7505657415538632,
+        "mean_predicted": 0.7505657415538634,
         "empirical_rate": 1.0,
         "count": 8
       },
@@ -433,28 +433,28 @@
       {
         "bin_lower": 0.2,
         "bin_upper": 0.30000000000000004,
-        "mean_predicted": 0.2708878391551919,
+        "mean_predicted": 0.2708878391551917,
         "empirical_rate": 0.2,
         "count": 5
       },
       {
         "bin_lower": 0.30000000000000004,
         "bin_upper": 0.4,
-        "mean_predicted": 0.35361143195542594,
+        "mean_predicted": 0.35361143195542616,
         "empirical_rate": 0.3333333333333333,
         "count": 3
       },
       {
         "bin_lower": 0.4,
         "bin_upper": 0.5,
-        "mean_predicted": 0.45876107940451394,
+        "mean_predicted": 0.45876107940451377,
         "empirical_rate": 0.5714285714285714,
         "count": 7
       },
       {
         "bin_lower": 0.5,
         "bin_upper": 0.6000000000000001,
-        "mean_predicted": 0.5533372473875259,
+        "mean_predicted": 0.5533372473875261,
         "empirical_rate": 1.0,
         "count": 4
       },
@@ -475,7 +475,7 @@
       {
         "bin_lower": 0.8,
         "bin_upper": 0.9,
-        "mean_predicted": 0.841556442879451,
+        "mean_predicted": 0.8415564428794511,
         "empirical_rate": 1.0,
         "count": 6
       },
@@ -919,31 +919,31 @@
   "ablation_ranking": [
     [
       "F_full",
-      0.98629
+      0.98679
     ],
     [
       "G_full_whitebox",
-      0.98612
+      0.98629
     ],
     [
       "E_history_provenance_evidence",
-      0.98446
+      0.98463
     ],
     [
       "D_history_provenance_contradiction",
-      0.90088
+      0.89988
     ],
     [
       "C_history_provenance",
-      0.88742
-    ],
-    [
-      "B_prompt_history",
-      0.85336
+      0.88509
     ],
     [
       "A_prompt_only",
-      0.85294
+      0.85194
+    ],
+    [
+      "B_prompt_history",
+      0.84953
     ]
   ],
   "external_eval": {
@@ -2158,9 +2158,9 @@
   },
   "latency_ms": {
     "n": 25,
-    "median": 20.52,
-    "p95": 23.38,
-    "mean": 20.45,
+    "median": 19.72,
+    "p95": 21.05,
+    "mean": 19.32,
     "note": "warm PHCPipeline.analyze incl. SHAP, machine-local"
   },
   "figures": [

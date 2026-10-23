@@ -30,12 +30,12 @@ type — the prompt-only ablation collapses to chance while the model holds:
 |---|---|---|---|
 | AUROC | **0.961** | 0.987 [0.972, 0.996] (1000× bootstrap CI) | 0.724 |
 | AUPRC | **0.981** | 0.992 | 0.852 |
-| F1 @ tuned threshold | **0.928** (P 0.970 / R 0.889) | 0.947 (P 0.942 / R 0.961) | 0.716 |
+| F1 @ tuned threshold | **0.928** (P 0.970 / R 0.889) | 0.947 (P 0.925 / R 0.971) | 0.716 |
 | ECE (10-bin) | 0.043 | 0.050 (0.092 uncalibrated) | 0.252 |
-| Multi-seed AUROC | 0.962 ± 0.001 (seeds 42 / 123 / 2024) | 0.987 ± 0.000 | — |
+| Multi-seed AUROC | 0.9619 ± 0.0009 (seeds 42 / 123 / 2024) | 0.9867 ± 0.0002 | — |
 | *Template lookup (leakage probe)* | *0.635* | *0.808* | *—* |
 | *Prompt-only ablation* | *0.434 (chance)* | *0.853* | *—* |
-| Action-level gates | **PASS** (coverage 52.3 %, 90.3 % caught, generated-turn rate 0.100 vs base 0.673) | **PASS** (coverage 52.8 %, 97.1 % caught, generated-turn rate 0.021 vs base 0.633) | — |
+| Action-level gates | **PASS** (coverage 52.3 %, 90.3 % caught, generated-turn rate 0.100 vs base 0.673) | **PASS** (coverage 52.8 %, 97.1 % caught, generated-turn rate 0.021 vs base 0.634) | — |
 
 The prompt-only figure on the standard benchmark is a memorised lookup, not
 a measure of what the prompt carries; the leak-controlled column is the
@@ -73,7 +73,7 @@ phc ablation --config configs/ablation.yaml \
 | Templates identifying one category | 84.2 % | 0.0 % |
 | Template lookup AUROC | 0.808 | 0.635 |
 | A: prompt only | 0.853 | **0.434** (chance) |
-| E: + history, provenance, evidence | 0.984 | 0.964 |
+| E: + history, provenance, evidence | 0.985 | 0.964 |
 | F: full | 0.987 | **0.961** |
 
 The prompt-only ablation collapses to chance while the full model barely
@@ -83,8 +83,8 @@ was already coming from the conversation.
 **Generalisation stress tests** (`phc stress`):
 
 - *Cross-label source* — training on `label_gold` and scoring against
-  `label_verified` gives AUROC **0.779** (against 0.987 for its own source),
-  and the reverse gives **0.694** (against 0.989). The model keeps much of
+  `label_verified` gives AUROC **0.779** (against 0.982 for its own source),
+  and the reverse gives **0.671** (against 0.988). The model keeps much of
   its discrimination against a label source it has never seen.
 - *Leave-one-category-out* — training on ten risk types and testing on the
   eleventh gives mean AUROC **0.804 ± 0.285** over 9 categories, from
@@ -92,16 +92,16 @@ was already coming from the conversation.
   framework transfers to risk types it has never seen for most categories,
   and fails on the two whose signal is specific to having seen them.
 
-Ablation AUROC (standard benchmark): `A_prompt_only` 0.853 → `B` 0.853 →
-`C` 0.887 → `D` 0.901 → `E_history_provenance_evidence` 0.984 →
-`F_full` 0.986. On the leak-controlled variant the same ladder reads
+Ablation AUROC (standard benchmark): `A_prompt_only` 0.852 → `B` 0.850 →
+`C` 0.885 → `D` 0.900 → `E_history_provenance_evidence` 0.985 →
+`F_full` 0.987. On the leak-controlled variant the same ladder reads
 0.434 → 0.789 → 0.793 → 0.804 → 0.964 → 0.961, and the ordering is the one
-the method section claims: history and provenance get you to 0.800,
+the method section claims: history and provenance get you to 0.793,
 contradiction adds a little, and evidence coverage is the single largest
 contributor.
 
 The cost-sensitive threshold search is stable across seeds: multi-seed F1 is
-0.943 ± 0.009 and the operating point varies by less than 0.07. The coverage
+0.946 ± 0.002. The coverage
 requirement (≥ 50 % of turns still answered) is imposed on the blocking
 cut-point during the validation-only threshold search, with a one-sided 95 %
 margin so that it holds on a fresh sample.
@@ -156,7 +156,7 @@ on val only), `stats` (paired significance between two checkpoints).
 ## Tests
 
 ```bash
-python3 -m pytest tests -q        # 140 tests, ~65 s
+python3 -m pytest tests -q        # 148 tests, ~65 s
 ```
 
 Covers utils, memory, the five consistency engines, retrieval/features, risk
@@ -183,10 +183,10 @@ Current zero-retraining results are intentionally visible:
 
 | Construction | Rows | PHC-X AUROC | 95% CI |
 |---|---:|---:|---:|
-| DiaHalu, turn-aligned | 5,923 turns | 0.429 | 0.403–0.456 |
+| DiaHalu, turn-aligned | 5,923 turns | 0.431 | 0.404–0.458 |
 | DiaHalu, stratified by history length | 10 strata | **0.510** | — |
-| HaluEval right/hallucinated pair (purity check) | 20,000 | 0.500 | 0.493–0.508 |
-| HaluEval counterfactual | 20,000 | **0.705** | 0.699–0.711 |
+| HaluEval right/hallucinated pair (purity check) | 20,000 | 0.500 | 0.493–0.507 |
+| HaluEval counterfactual | 20,000 | **0.705** | 0.698–0.713 |
 | HalluHard seeds | 250 | coverage only | N/A |
 
 Three things are now separated cleanly:
