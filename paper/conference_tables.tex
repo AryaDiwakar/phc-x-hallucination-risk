@@ -1,0 +1,116 @@
+\begin{table*}[t]
+\centering
+\caption{Test split: PHC-X and baselines.}\label{tab:main}
+\scriptsize
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrrrr}
+\toprule
+Method & AUROC & AUPRC & F1 & Precision & Recall & ECE & Brier \\
+\midrule
+PHC-X, RF calibrated & 0.987 & 0.992 & 0.947 & 0.925 & 0.971 & 0.050 & 0.049 \\
+PHC-X, RF uncalibrated & 0.987 & 0.992 & 0.935 & 0.886 & 0.990 & 0.092 & 0.060 \\
+Heuristic & 0.724 & 0.848 & 0.711 & 0.737 & 0.686 & 0.250 & 0.257 \\
+Template lookup & 0.808 & 0.858 & 0.837 & 0.730 & 0.980 & 0.050 & 0.162 \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+\begin{table*}[t]
+\centering
+\caption{Per-category test results.}\label{tab:category}
+\scriptsize
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrr}
+\toprule
+Category & $n$ & AUROC & F1 & ECE \\
+\midrule
+contradictory\_context & 12 & 0.950 & 0.947 & 0.070 \\
+entity\_ambiguity & 20 & 1.000 & 0.919 & 0.148 \\
+evidence\_conflict & 12 & 0.500 & 1.000 & 0.003 \\
+long\_context\_degradation & 17 & 1.000 & 1.000 & 0.050 \\
+model\_memory\_contamination & 12 & 1.000 & 1.000 & 0.049 \\
+referential\_ambiguity & 20 & 0.951 & 0.897 & 0.111 \\
+short\_benign & 11 & 0.500 & 0.000 & 0.000 \\
+supported\_context & 18 & 1.000 & 1.000 & 0.006 \\
+temporal\_inconsistency & 10 & 1.000 & 1.000 & 0.029 \\
+unsupported\_context & 18 & 0.862 & 0.846 & 0.270 \\
+unsupported\_presupposition & 11 & 1.000 & 1.000 & 0.000 \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+\begin{table*}[t]
+\centering
+\caption{Feature ablations on the standard benchmark.}\label{tab:ablation}
+\scriptsize
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{clr}
+\toprule
+ID & Feature group & AUROC \\
+\midrule
+F & Full black box & 0.987 \\
+G & Full plus white box & 0.986 \\
+E & Plus evidence & 0.985 \\
+D & Plus contradiction & 0.900 \\
+C & History and provenance & 0.885 \\
+A & Prompt only & 0.852 \\
+B & Prompt and history & 0.850 \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+\begin{table}[t]
+\centering
+\caption{Action-level safety gates.}\label{tab:gates}
+\scriptsize
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lrr}
+\toprule
+Gate & Value & Status \\
+\midrule
+Coverage & 0.528 & PASS \\
+Positives caught & 0.971 & PASS \\
+Safety margin & 0.613 & -- \\
+Generated risk & 0.021 & -- \\
+Base risk & 0.633 & -- \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\begin{table*}[t]
+\centering
+\caption{Standard and leak-controlled benchmark comparison.}\label{tab:leakcontrol}
+\scriptsize
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrr}
+\toprule
+Quantity & Standard & Leak controlled \\
+\midrule
+Classifier & Random Forest & XGBoost, depth 3 \\
+Templates identifying one category & 84.2\% & 0.0\% \\
+Template lookup AUROC & 0.808 & 0.635 \\
+A: prompt only & 0.852 & 0.434 \\
+B: prompt and history & 0.850 & 0.709 \\
+C: plus provenance & 0.885 & 0.710 \\
+D: plus contradiction & 0.900 & 0.707 \\
+E: plus evidence & 0.985 & 0.974 \\
+F: full & 0.987 & 0.973 \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+\begin{table*}[t]
+\centering
+\caption{External evaluation without retraining or recalibration.}\label{tab:external}
+\scriptsize
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrr}
+\toprule
+Dataset & $n$ & AUROC & 95 percent CI & AUPRC \\
+\midrule
+DiaHalu, turn aligned & 5923 & 0.431 & 0.404--0.458 & 0.072 \\
+HaluEval pair, purity check & 20000 & 0.500 & 0.493--0.507 & 0.500 \\
+HaluEval counterfactual & 20000 & 0.705 & 0.698--0.713 & 0.659 \\
+\bottomrule
+\end{tabular}}
+\end{table*}

@@ -303,10 +303,10 @@ Right: reliability before/after calibration.}\label{fig:roc}
 \end{figure}
 
 \textbf{Headline.} The number we stand behind is the leak-controlled one: with
-a prompt that carries no category information, PHC-X reaches AUROC \lcauc{}
-[\lcauprc AUPRC, \lcfone{} F1] on $n=$ \lcntest, while the prompt-only
+a prompt that carries no category information, PHC-X reaches AUROC \lcauc{},
+AUPRC \lcauprc{} and F1 \lcfone{} on $n=$ \lcntest, while the prompt-only
 ablation is at \lcprompt{}---chance. On the standard benchmark, where the
-prompt does identify the category, the same model reaches AUROC \auroc{}
+prompt does identify the category, the random forest reaches AUROC \auroc{}
 [\auroclo, \aurochi], AUPRC \auprc{} [\auprclo, \auprchi], F1 \fone{}
 (precision \precis, recall \recla), ECE \ece, Brier \brier, against AUROC
 \hauroc{} / AUPRC \hauprc{} / F1 \hfone{} for the heuristic baseline, and
@@ -349,7 +349,7 @@ whole ladder on the leak-controlled variant
 (coverage \coverage) while catching \caught{} of all positive (hallucination-prone)
 turns; generated turns carry hallucination rate \riskgenerated{}
 versus base rate \riskoverall---a safety margin of \safetymargin. All gates
-report \gatestatus{} (Tables~\ref{tab:gates} and~\ref{tab:actions}).
+report \gatestatus{} (Table~\ref{tab:gates}).
 Errors concentrate in \texttt{unsupported\_context} and
 \texttt{temporal\_inconsistency}, the categories with the most
 lexically-diverse phrasings.

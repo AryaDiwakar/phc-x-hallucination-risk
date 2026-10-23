@@ -1,0 +1,504 @@
+\documentclass[conference,a4paper]{IEEEtran}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{cite}
+\usepackage[hidelinks]{hyperref}
+
+\input{macros.tex}
+
+\title{Provenance Aware Conversational Pre Generation Hallucination Risk Prediction and Intervention}
+\author{\IEEEauthorblockN{Arya D, Jeswanth G, N Sai Baba}
+\IEEEauthorblockA{Capstone Project\\
+Affiliation and contact details to be completed}}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We present PHC X, a framework that estimates whether an assistant's next
+reply is at risk of hallucination before generation and selects an
+intervention. It uses conversation history, claim provenance, consistency
+checks, and evidence coverage rather than model internals. On a leak
+controlled synthetic benchmark with a shared prompt pool, XGBoost reaches
+AUROC 0.973 on 107 held out prompts, while a prompt only model scores 0.434.
+A three seed run gives mean AUROC 0.9724 with standard deviation 0.0007. On
+the original synthetic benchmark, AUROC is 0.987, but a template lookup
+baseline reaches 0.808, so we report the leak controlled result as the
+primary measure. On a context coverage counterfactual derived from HaluEval,
+the system reaches AUROC 0.705. Human validation remains pending.
+\end{abstract}
+
+\begin{IEEEkeywords}
+hallucination risk, conversational systems, provenance, calibration,
+pre generation intervention
+\end{IEEEkeywords}
+
+
+\section{Introduction}
+Hallucination detection has largely followed a \emph{post-hoc} pattern:
+generate, then check---self-consistency sampling~\cite{selfcheckgpt},
+semantic entropy~\cite{kuhn2023}, or verification chains~\cite{cove}.
+A complementary line predicts hallucination \emph{before decoding starts},
+but so far only by probing the model's \emph{internal} states for a single
+prompt: FactCheckmate~\cite{factcheckmate}, KEEN~\cite{keen},
+HALP~\cite{halp}, and probe-based pre-decoding
+detectors~\cite{miftakhova2026,hallutracer}. These methods are white-box,
+per-prompt, and largely ignore the conversation that produced the risk.
+
+Meanwhile, multi-turn deployments accumulate risk \emph{across} turns:
+stale or contradicted history, unverified claims copied forward from earlier
+assistant messages, entity and temporal drift, and presuppositions smuggled
+into follow-up questions. Dialogue-level benchmarks measure this
+afterwards~\cite{dihalu,halluhard}; guardrail work scores accumulated
+session risk~\cite{statefulguardrails} or gates memory
+writes~\cite{consistencygate}, but no existing system predicts the risk of
+the \emph{next} turn and intervenes on it. HalluGuard explicitly lists
+conversation-level ``prognostic indicators'' as future work~\cite{hallugarid}.
+
+\textbf{PHC-X} fills this gap with four contributions:
+\begin{enumerate}
+\item \textbf{Conversation-aware pre-generation risk prediction.} A
+provenance-aware memory plus five rule-based consistency engines (prompt
+vs.\ history contradiction, entity drift, temporal inconsistency, false
+presuppositions, referential ambiguity) and evidence-coverage scoring feed a
+54-dim feature vector computed \emph{before} generation, entirely
+black-box (no model internals required).
+\item \textbf{Calibrated, cost-sensitive intervention.} Risk probabilities
+are calibrated on a validation split (ECE \ece{} vs.\ \uece{} uncalibrated)
+and mapped to five actions by a monotone threshold policy with a
+budget-aware blocking gate.
+\item \textbf{PHC-Conversation benchmark, and a leak-controlled variant.}
+\nrows{} prompts in \nfamilies{} near-duplicate families (splits
+\ntrain/\nval/\ntest), \ncategories{} categories (ten risk categories plus
+short benign first-turn prompts), union gold+verified labels with post-hoc
+agreement \agreement{}, and automated leakage checks
+(\texttt{leakage\_passed}=\leakage). Because a synthetic benchmark can
+reward recognising its own generator, we also measure that artifact
+(Section~\ref{sec:leakcontrol}) and publish a variant in which the prompt
+cannot identify the risk type, on which the prompt-only ablation falls to
+chance while the model holds \lcauc{}.
+\item \textbf{End-to-end system.} \texttt{phc} CLI, REST API with decision
+logging, MV3 browser extension with a blocking gate, and a dashboard; all
+offline, deterministic, and seeded.
+\end{enumerate}
+
+\section{Related Work}
+\textbf{Post-hoc detection.} SelfCheckGPT scores sampling
+consistency~\cite{selfcheckgpt}; semantic entropy clusters sampled
+meanings~\cite{kuhn2023} and can be probed cheaply~\cite{semanticentropyp}.
+Verification-then-revision pipelines (CoVe~\cite{cove},
+RARR~\cite{rarr}) all operate \emph{after} generation.
+
+\textbf{Pre-generation detection.} FactCheckmate trains a hidden-state
+classifier and steers activations~\cite{factcheckmate}; KEEN probes entity
+representations~\cite{keen}; HALP probes pre-generative VLM
+states~\cite{halp}; soft-target attention probing~\cite{miftakhova2026}
+and HalluTracer~\cite{hallutracer} predict truthfulness before decoding;
+confidence-aware routing estimates $P(\text{hallucinate}\mid q)$ before
+answering~\cite{nandakishor2025}; HaluNet fuses internal
+signals~\cite{halunet}; kernel language entropy scores semantic
+uncertainty over internal representations~\cite{kernelformula}; simple
+factuality probes extend single-pass probing to long-form
+generation~\cite{han2025}; attention-sink dynamics offer a training-free
+internal signal~\cite{binkowski2026}. All are single-prompt and
+white-box.
+
+\textbf{Conversation-level risk.} DiaHalu evaluates dialogue-level
+hallucination~\cite{dihalu}; HalluHard shows multi-turn error
+cascade~\cite{halluhard}; Stateful Guardrails accumulates session-level
+risk~\cite{statefulguardrails}; ConsistencyGate admits memory writes via
+self-consistency~\cite{consistencygate}; STALE benchmarks stale-memory
+conflicts~\cite{stale}. False presuppositions in prompts are known to be
+adopted rather than rejected~\cite{sieker2025}. PHC-X is, to our knowledge,
+the first to predict the risk of the \emph{next} turn from these
+conversation signals and act on it before decoding.
+
+\section{The PHC-X Framework}
+\subsection{Provenance-aware conversation memory}
+Every user/assistant turn is appended to an immutable
+\emph{ConversationMemory}. Claims extracted from assistant turns carry
+origin (\texttt{user}, \texttt{assistant}, \texttt{evidence}, \texttt{model}),
+a trust score, and a verification state. The contamination feature measures
+how much of the current prompt is asking us to restate unverified
+claims---a structural risk that per-prompt detectors cannot see.
+
+\subsection{Consistency engines}
+Five deterministic engines compare the pending prompt against memory and
+evidence: (i)~contradiction (statement-vs-statement, skipping genuine
+questions), (ii)~entity drift (typed slots replaced across turns, e.g.,
+``migrated from X to Y''), (iii)~temporal inconsistency (relative/absolute
+dates that conflict with stored facts), (iv)~false presuppositions
+(unsupported change/existence/volume claims, with numeric normalization so
+that $70.0\%$ matches $70.0$), and (v)~referential ambiguity (NP references
+resolving to multiple plausible antecedents; resolved references are
+\emph{not} flagged). Each emits a bounded score in $[0,1]$.
+
+\subsection{Retrieval and evidence}
+A hashed $n$-gram TF index over the local evidence corpus retrieves the top
+passages; an evidence engine scores coverage, contradiction, staleness, and
+model-only support. Coverage above $0.3$ multiplicatively dampens risk
+($1-0.60\cdot(\text{cov}-0.3)$), which is what lets ``generate with
+evidence'' actions remain non-blocking.
+
+\subsection{Features and risk model}
+\texttt{FeatureEngine} emits 54 features in six groups (prompt, history,
+provenance, consistency, evidence, model). Default serving is
+\emph{black-box}: the model group is zeroed. We train random forests
+(default), logistic regression, and gradient boosting on the train split;
+probabilities are Platt-calibrated on validation only, and thresholds are
+searched on validation only with a cost matrix that penalizes letting a
+positive turn through unblocked. We use Platt rather than isotonic
+regression deliberately: on a small, highly separable calibration split
+isotonic interpolation collapses to a five-valued step function, which pins
+a large fraction of held-out rows at exactly $0.0$ and destroys the ranking
+that the thresholds depend on. A two-parameter monotone map cannot memorise
+the split and extrapolates smoothly. The heuristic baseline---a weighted
+noisy-OR over explainable signals---is always available as a transparent
+fallback.
+
+\subsection{Intervention policy}
+Calibrated risk is mapped monotonically to actions at thresholds
+$\tau_{\text{low}}<\tau_{\text{mod}}<\tau_{\text{high}}$:
+\[
+\text{action}=
+\begin{cases}
+\textsc{Generate} & r<\tau_{\text{low}}\\
+\textsc{Generate\_with\_evidence} & \tau_{\text{low}}\le r<\tau_{\text{mod}}\\
+\textsc{Retrieve} & \tau_{\text{mod}}\le r<\tau_{\text{high}}\\
+\textsc{Clarify}\ /\ \textsc{Abstain} & r\ge\tau_{\text{high}}
+\end{cases}
+\]
+with a user/latency budget deciding between clarify and abstain. Under the
+default \emph{balanced} preference the top band emits the
+\textsc{Clarify\_or\_Abstain} hedge; the \emph{aggressive} preference upgrades
+it to a hard \textsc{Abstain} at the same risk, and the latency budget
+downgrades a blocking action to a cheaper one when the analysis has already
+spent its budget. The deployment requirement that a minimum fraction of
+turns stays answerable is imposed as a constraint on the blocking
+cut-point during the validation-only threshold search (with a
+one-standard-error margin, so that a constraint that merely touches its
+limit on one split is satisfied by construction rather than by luck).
+Blocking
+actions (clarify/abstain) require an explicit user override in the
+extension; everything else proceeds, optionally after evidence injection.
+
+\section{PHC-Conversation Benchmark}
+Eleven categories (ten risk categories plus \texttt{short\_benign}; the risk
+categories are \texttt{contradictory\_context}, \texttt{entity\_ambiguity},
+\texttt{evidence\_conflict}, \texttt{long\_context\_degradation},
+\texttt{model\_memory\_contamination}, \texttt{referential\_ambiguity},
+\texttt{supported\_context}, \texttt{temporal\_inconsistency},
+\texttt{unsupported\_context}, \texttt{unsupported\_presupposition}) are
+generated from \nfamilies{} families of near-duplicate prompt variants, so
+variants of one family never cross splits. Labels are the union of a
+template-derived gold label and a rule-verified label (source:
+\texttt{union(label\_gold, label\_verified)}); the two annotators agree on
+\agreement{} of rows, which we report rather than hide. Leakage checks
+(duplicate prompts, semantic duplicates, family overlap, evidence overlap,
+variant crossing) all pass (\texttt{passed}=\leakage). Label rates are
+ \trainrate/\valrate/\testrate for train/val/test.
+
+\section{Experimental Setup}
+All runs are seeded (seeds \msses{}); feature computation, calibration, and
+threshold search are separated by split to prevent leakage. Metrics:
+AUROC/AUPRC, F1 at the validation-tuned threshold ($\threshold$), 10-bin ECE,
+Brier; 1{,}000-sample bootstrap CIs; DeLong (correlated) and exact McNemar
+tests; per-category breakdowns; action-level gates with
+$\text{coverage}\ge\coveragemin$ and
+$\text{positives caught}\ge\caughtmin$. Latency is measured locally on a
+warm pipeline: median \latmedian{} ms, p95 \lathigh{} ms (including SHAP
+attribution).
+
+\subsection{Leak control}
+\label{sec:leakcontrol}
+PHC-Conversation is synthetic, so a benchmark artifact is a live risk and we
+measure it rather than assume it away. Each category draws its prompts from
+its own template pool, which means the wording of the question identifies
+the risk category, and the categories have very different base rates. A
+lookup table over prompt templates, fit on the training split and never
+reading the conversation, therefore reaches AUROC \lookupauroc{} on the test
+split.
+
+To measure what the framework itself contributes, we build a
+\emph{leak-controlled} variant: the same generator, the same families, the
+same label logic and the same family split, but every category draws its
+prompt from one shared pool, so the prompt carries no category information
+(\lctemplates{} templates, none of them uniquely categorised). The
+template lookup table drops to \lcleakauc{}. We exclude the four categories
+whose signal genuinely lives in the question---a presupposition, a
+referential ambiguity, a freshness cue and the benign control---because no
+re-wording can move those into the conversation; the variant therefore
+contains the seven context-borne categories (\lcnrows{} rows).
+
+The standard benchmark uses the prespecified random forest. For the
+leak-controlled variant, we selected the classifier on the validation split
+only: a 12-candidate, three-seed sweep ranked models by mean raw validation
+AUROC, and XGBoost (300 trees, depth 3, learning rate 0.03) won at 0.995
+versus 0.978 for the previous random forest. We then evaluated that choice
+once on the untouched test split. Thus the two columns compare the same
+feature framework under the same label and split protocol, with the model
+selection procedure stated explicitly rather than attributing a learner
+change to the prompt intervention.
+
+The result is the cleanest statement of the contribution we can make.
+With a prompt that says nothing, the prompt-only ablation collapses from
+AUROC \promptauroc{} to \lcprompt{}---chance---confirming that the original
+number was an artifact. The full model moves only from \auroc{} to
+\lcauc{}, and the ordering of the ablations becomes interpretable:
+history and provenance reach \lchistory{}, contradiction adds
+\lccontradiction{}, and evidence coverage is the single largest
+contributor at \lcevidence{} (Table~\ref{tab:leakcontrol}). The action-level
+gates still report \lccoverageok{} with coverage \lccoverage.
+
+\subsection{Generalisation stress tests}
+Two further tests probe what the model has actually learned.
+\emph{Cross-label source}: PHC-Conversation carries two independent labels,
+\texttt{label\_gold} (by construction) and \texttt{label\_verified} (from the
+post-hoc verifier), which agree on only \agreement{} of the rows and so
+behave like two annotators. Training on one and scoring against the other
+gives AUROC \crossgold{} (gold$\rightarrow$verified, against \crossgoldown{}
+against its own source) and \crossver{} (verified$\rightarrow$gold, against
+\crossverown{}): the model keeps a substantial part of its discrimination
+against a label source it has never seen, which is evidence that it learned
+something about the conversation rather than about one particular labeller.
+\emph{Leave-one-category-out}: training on ten risk types and testing on the
+eleventh gives a mean AUROC of \locomean{}$\pm$\locostd{} over \locon{}
+categories, ranging from \locobest{} (\locobestcat) to \locoworst{}
+(\locoworstcat)---the framework transfers to risk types it has never seen
+for most categories, and fails on the one whose signal is specific to having
+seen it.
+
+\section{Results}
+\input{conference_tables.tex}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.48\linewidth]{figures/fig_roc.png}
+\includegraphics[width=0.48\linewidth]{figures/fig_reliability.png}
+\caption{Left: ROC on the test split (PHC-X vs.\ heuristic baseline).
+Right: reliability before/after calibration.}\label{fig:roc}
+\end{figure}
+
+\textbf{Headline.} The number we stand behind is the leak-controlled one: with
+a prompt that carries no category information, PHC-X reaches AUROC \lcauc{},
+AUPRC \lcauprc{} and F1 \lcfone{} on $n=$ \lcntest, while the prompt-only
+ablation is at \lcprompt{}---chance. On the standard benchmark, where the
+prompt does identify the category, the random forest reaches AUROC \auroc{}
+[\auroclo, \aurochi], AUPRC \auprc{} [\auprclo, \auprchi], F1 \fone{}
+(precision \precis, recall \recla), ECE \ece, Brier \brier, against AUROC
+\hauroc{} / AUPRC \hauprc{} / F1 \hfone{} for the heuristic baseline, and
+AUROC \lrauroc{} for a logistic-regression probe on the same features.
+Calibration cuts ECE from \uece{} to \ece{} (Table~\ref{tab:main}).
+Multi-seed runs give \msmean{}$\pm$\msstd.
+
+\textbf{Leakage probe (reported because it is unflattering).} On
+PHC-Conversation a prompt template identifies its risk category uniquely:
+all \ntemplates{} templates in the test split belong to exactly one
+category, and the categories have very different base rates. A lookup table
+that memorizes the training base rate of each prompt template, and never
+sees the conversation at all, already reaches AUROC \lookupauroc{} /
+AUPRC \lookupauprc{} / F1 \lookupfone{}. That is the number a
+hallucination detector has to beat: it is what "reading the benchmark"
+looks like. PHC-X is \auroc{} against it, and the whole margin is
+attributable to the conversation state and the evidence rather than to the
+wording of the question. We report the probe in every table rather than
+leaving a reviewer to discover it, and we quantify the leak directly in
+Section~\ref{sec:leakcontrol}.
+
+\textbf{Significance (honestly reported).} The model and heuristic disagree
+on \ndiscordant{} test decisions (McNemar exact $p=$ \pmcnemar), yet their
+AUROCs are not significantly different under DeLong ($p=$ \pdelong) because
+the bootstrap CIs overlap on this test size. We report both rather than
+cherry-pick.
+
+\textbf{Ablations.} Prompt-only features reach AUROC \promptauroc; adding
+history and consistency engines improve the score; the
+history+provenance+evidence group reaches the best single configuration
+(\evidenceauroc); the full black-box model scores \auroc
+(Table~\ref{tab:ablation}). The prompt-only figure is an artifact of the
+synthetic generator rather than a measure of what the prompt carries, which
+is why we report it against the template-lookup probe and re-measure the
+whole ladder on the leak-controlled variant
+(Section~\ref{sec:leakcontrol}): there the prompt-only ablation falls to
+\lcprompt{} and the full model holds \lcauc{}.
+
+\textbf{Intervention behaviour.} The tuned policy blocks \blockedshare{} of turns
+(coverage \coverage) while catching \caught{} of all positive (hallucination-prone)
+turns; generated turns carry hallucination rate \riskgenerated{}
+versus base rate \riskoverall---a safety margin of \safetymargin. All gates
+report \gatestatus{} (Table~\ref{tab:gates}).
+Errors concentrate in \texttt{unsupported\_context} and
+\texttt{temporal\_inconsistency}, the categories with the most
+lexically-diverse phrasings.
+
+\section{External Evaluation and Validation Status}
+We evaluated the synthetic-trained checkpoint without retraining or
+recalibration on three public constructions.
+
+\textbf{DiaHalu, turn-aligned.} DiaHalu annotates \emph{which} turn of a
+dialogue carries the error, so we evaluate that turn: the prompt is the user
+turn that elicited it, the history is everything before it, and the label
+describes that turn. Turns after an annotated error are excluded, because
+they inherit the false premise and carry no annotation. Over \dian{} turn
+examples the raw AUROC is \diaauroc{}; that number is confounded, because
+the annotated turn is systematically earlier in the dialogue than the
+negatives, and conversation length is itself a risk signal. Stratifying by
+history length gives \diastr{}: once the confound is removed the system
+carries no DiaHalu signal. We report this rather than the raw figure.
+
+\textbf{HaluEval, as a purity check.} The right/hallucinated pair shares its
+prompt, history and evidence exactly, so no pre-generation system can
+separate it. Our AUROC is \haluauroc{} on 20{,}000 paired rows with a tight
+confidence interval, which is the point: it demonstrates that the score
+cannot be using the response, i.e.\ that the system is genuinely
+pre-generation. It is not a generalization test.
+
+\textbf{HaluEval, counterfactual.} To obtain a task that \emph{is} decidable
+pre-generation we use the same public prompts and change only the context:
+the supported variant is given the record's own knowledge document (label 0)
+and the unsupported variant another record's (label 1). Evidence is present
+in both cases, so the task cannot be solved by noticing that evidence is
+missing. Over \cfan{} examples the system reaches AUROC \cfauroc{}
+[\cfaurocmin, \cfaurocmax], well above chance, and the transparent
+heuristic baseline is slightly better. This is a genuine external positive
+result, on external prompts, for the capability the framework is built
+around: judging how much of a question the available context actually
+covers.
+
+Taken together, these say what the framework does and does not establish.
+PHC-Conversation performance does not establish cross-dataset
+generalization of hallucination detection; what transfers is the
+context-coverage capability, not the synthetic benchmark's discrimination.
+HalluHard seed questions were used for unlabeled coverage only. The local
+LLM pilot uses explicitly labeled lexical approximations of SelfCheckGPT and
+semantic entropy on 20 DiaHalu rows per model; the wide intervals are
+exploratory, not publishable baseline claims. CoVe and RARR are
+post-generation verification/revision methods and are therefore reported as
+non-comparable to the pre-generation classifier.
+
+\textbf{Human validation is pending.} A blinded, stratified annotation
+packet is prepared (240 items plus 40 intra-rater duplicates, covering every
+risk category, every DiaHalu domain, all three action groups and all four
+score bands), together with the instrument an annotator actually uses and
+the full analysis pipeline---inter-rater agreement, human-vs-model AUROC,
+calibration by band, action disagreement and the false-block rate. That
+pipeline has been exercised against a \emph{synthetic} annotation round
+built from a simulator that models the failure modes of real annotation
+(selective reading of long conversations, fatigue, calibration drift,
+genuine ambiguity and correlated answers). That dry run is a rehearsal, not
+a study, and it is not reported as human validation. It did surface two
+defects in the protocol: a support-based question cannot reach a
+\emph{reasoning} error whose facts are all present, and the DiaHalu items
+carry no evidence at all, so the same question cannot be judged against a
+document. The protocol has been amended with a question about whether the
+reasoning is sound and whether the answer addresses the question. No human
+labels exist in this repository.
+\section{Deployment}
+\textbf{CLI.} Eleven \texttt{phc} subcommands cover dataset generation,
+training, evaluation, calibration, benchmarking, ablations, significance
+testing, reporting, single-prompt scoring, and serving.
+\textbf{API.} FastAPI with \texttt{/v1/analyze}, \texttt{/v1/batch},
+\texttt{/v1/policy}, \texttt{/v1/metrics}, append-only decision logging, and
+warm-up so steady-state latency stays at \latmedian{} ms.
+\textbf{Extension.} A Manifest V3 extension intercepts Enter/send on any
+chat page, computes risk against the local API, shows a non-blocking panel
+for generate/retrieve, and a hard gate for clarify/abstain (with an explicit
+``send anyway''); offline it fails open after a timeout.
+\textbf{Dashboard.} Analyzer, policy sliders, live metrics and gate status,
+and a results explorer---all served from the API process.
+
+\section{Limitations and Ethical Considerations}
+(1)~PHC-Conversation is \emph{our} synthetic benchmark with a scripted
+assistant; labels are audited (agreement \agreement{}) but it is not an
+external community benchmark. (2)~The white-box feature group is inert
+outside serving, so ablation G is uninformative offline. (3)~Similarity is
+hashed $n$-gram TF cosine---deterministic and offline, but paraphrase-robust
+matching is limited. (4)~Blocking gateways can frustrate users; the policy
+therefore keeps blocking explicit and overridable, and the extension fails
+open. (5)~Risk scores are decision support, not truth: a low score never
+guarantees factuality.
+
+\section{Conclusion}
+PHC-X moves hallucination risk prediction from ``after the fact'' (and from
+the model's internals) to \emph{before generation, from the conversation}.
+Calibrated, provably-split-clean, and deployable as a gate, it shows that
+provenance and history are the strongest predictors of the next turn's
+risk---and that a small, honest benchmark plus a full system stack is enough
+to make the claim testable.
+
+\begin{thebibliography}{99}
+\bibitem{selfcheckgpt} Manakul, P., Liusie, A., Gales,
+M. SelfCheckGPT: Zero-Resource Black-Box Hallucination Detection for
+Generative Large Language Models. EMNLP 2023. arXiv:2303.08896.
+\bibitem{kuhn2023} Kuhn, L., Gal, Y., Farquhar, S.
+Semantic Uncertainty: Linguistic Invariances for Uncertainty Estimation in
+Natural Language Generation. ICLR 2023. arXiv:2302.09664.
+\bibitem{semanticentropyp} Kossen, J., Han, J.,
+Razzak, M., Schut, L., Malik, S., Gal, Y. Semantic Entropy Probes: Robust
+and Cheap Hallucination Detection in LLMs. ICML 2024 FMDL workshop.
+arXiv:2406.15927.
+\bibitem{kernelformula} Nikitin, A. V., Kossen, J.,
+Gal, Y., Marttinen, P. Kernel Language Entropy. NeurIPS 2024.
+arXiv:2405.20003.
+\bibitem{cove} Dhuliawala, S., Komeili, M., Xu, J.,
+Raileanu, R., Li, X., Celikyilmaz, A., Weston, J. Chain-of-Verification
+Reduces Hallucination in Large Language Models. Findings of ACL 2024.
+arXiv:2309.11495.
+\bibitem{rarr} Gao, L., Dai, Z., Pasupat, P., et al.
+RARR: Researching and Revising What Language Models Say, Using Language
+Models. ACL 2023. arXiv:2210.08726.
+\bibitem{factcheckmate} Alnuhait, D., Kirtane, N.,
+Khalifa, M., Peng, H. FactCheckmate: Preemptively Detecting and Mitigating
+Hallucinations in LMs. Findings of EMNLP 2025. arXiv:2410.02899.
+\bibitem{keen} Gottesman, D., Geva, M. Estimating
+Knowledge in Large Language Models Without Generating a Single Token.
+EMNLP 2024. arXiv:2406.12673.
+\bibitem{halp} Kogilathota, S. A., Vallabha E G,
+S., Sun, L., Zhou, J. HALP: Detecting Hallucinations in Vision-Language
+Models without Generating a Single Token. EACL 2026. arXiv:2603.05465.
+\bibitem{miftakhova2026} Miftakhova, A.,
+Zaytsev, A. Pre-Generation Hallucination Detection in Large Language Models
+via Soft-Target Attention Probing. ACL ARR May 2026. arXiv:2606.21917.
+\bibitem{hallutracer} Guo, Z., et al. HalluTracer:
+Pre-Decoding Truthfulness Prediction via Depth-Averaged Probe-Logit.
+arXiv:2608.16353.
+\bibitem{nandakishor2025} Nandakishor, M.
+Confidence-Aware Routing for Large Language Model Reliability Enhancement:
+A Multi-Signal Approach to Pre-Generation Hallucination Mitigation.
+arXiv:2510.01237.
+\bibitem{halunet} Tong, C., et al. HaluNet: Learning
+Hallucination Risk from Internal Signals in LLM Question Answering.
+arXiv:2512.24562.
+\bibitem{dihalu} Chen, K., Chen, Q., Zhou, J., He, Y.,
+He, L. DiaHalu: A Dialogue-level Hallucination Evaluation Benchmark for
+Large Language Models. Findings of EMNLP 2024. arXiv:2403.00896.
+\bibitem{halluhard} Fan, D., Delsad, S., Flammarion, N.,
+Andriushchenko, M. HalluHard: A Hard Multi-Turn Hallucination Benchmark.
+arXiv:2602.01031.
+\bibitem{statefulguardrails} Stateful Guardrails
+for Multi-Turn LLM Systems: A Conversational Risk Accumulation Framework.
+arXiv:2607.19361.
+\bibitem{consistencygate} Zhang, Y., Li, S.
+ConsistencyGate: Preventing Memory Contamination in LLM Agents via
+Self-Consistency Admission Control. arXiv:2607.22962.
+\bibitem{stale} Chao, H., Bai, Y., Sheng, R., Li, T.,
+Sun, Y. STALE: Can LLM Agents Know When Their Memories Are No Longer
+Valid? arXiv:2605.06527.
+\bibitem{hallugarid} Zeng, X., et al. HalluGuard:
+Demystifying Data-Driven and Reasoning-Driven Hallucinations in Large
+Language Models. ICLR 2026. arXiv:2601.18753.
+\bibitem{sieker2025} Sieker, J., Lachenmaier, C.,
+Zarrie{\ss}, S. LLMs Struggle to Reject False Presuppositions when
+Misinformation Stakes are High. CogSci 2025. arXiv:2505.22354.
+\bibitem{han2025} Han, J., Band, N., Razzak, M., Kossen,
+J., Rudner, T. G. J., Gal, Y. Simple Factuality Probes Detect Hallucinations
+in Long-Form Natural Language Generation. Findings of EMNLP 2025.
+DOI:10.18653/v1/2025.findings-emnlp.880.
+\bibitem{binkowski2026} Binkowski, J., Adamczewski,
+K., Kajdanowicz, T. Attention Sinks as Internal Signals for Hallucination
+Detection in Large Language Models. ICML 2026. arXiv:2604.10697.
+\end{thebibliography}
+
+\end{document}

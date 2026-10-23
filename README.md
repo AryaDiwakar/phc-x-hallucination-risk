@@ -151,6 +151,10 @@ phc report                       # reports/stats.json + reports/figures/*.png
 # 5b. paper: renders macros/tables from stats.json + compiles (tectonic)
 phc paper                        # paper/main.pdf  (no LaTeX engine? --no-compile)
 
+# 5c. separate A4 two-column IEEE conference draft
+python3 scripts/build_conference_paper.py
+cd paper && tectonic -X compile conference.tex
+
 # 6. score one prompt end-to-end
 phc risk --prompt "Isn't it true that Paris doubled its population in 2025?"
 
@@ -164,7 +168,7 @@ on val only), `stats` (paired significance between two checkpoints).
 ## Tests
 
 ```bash
-python3 -m pytest tests -q        # 150 tests, ~65 s
+python3 -m pytest tests -q        # 154 tests, ~65 s
 ```
 
 Covers utils, memory, the five consistency engines, retrieval/features, risk
@@ -172,7 +176,8 @@ Covers utils, memory, the five consistency engines, retrieval/features, risk
 browser extension manifest/sources, the **CLI** (every subcommand, against a
 tiny dataset), the **human-validation packet** (blinding + stratification) and
 the **annotation analysis** (agreement, calibration, false-block rate), and
-one regression test per defect fixed in the correctness sweep.
+conference-paper generation, and one regression test per defect fixed in the
+correctness sweep.
 
 ## External Evaluation
 
