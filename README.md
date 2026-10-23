@@ -164,7 +164,7 @@ on val only), `stats` (paired significance between two checkpoints).
 ## Tests
 
 ```bash
-python3 -m pytest tests -q        # 149 tests, ~65 s
+python3 -m pytest tests -q        # 150 tests, ~65 s
 ```
 
 Covers utils, memory, the five consistency engines, retrieval/features, risk
