@@ -147,10 +147,12 @@ def test_leakcontrol_model_selection_is_validation_only():
     if not report_path.exists():
         pytest.skip("run scripts/sweep_leakcontrol_models.py first")
     report = __import__("json").loads(report_path.read_text())
-    assert report["validation_only"] is True
+    assert report["selection_split"] == "train only"
+    assert report["validation_split_used_for_selection"] is False
     assert report["test_split_used_for_selection"] is False
-    assert report["selected"]["name"] == "xgb_d3"
-    # The selected model has to beat the prior RF on validation, across seeds.
+    assert report["cv"] == "5-fold GroupKFold by family_id"
+    assert report["selected"]["name"] == "xgb_d4"
+    # The selected model has to beat the prior RF on grouped training CV.
     candidates = {c["name"]: c for c in report["candidates"]}
-    assert (candidates["xgb_d3"]["validation"]["auroc"]["mean"] >
-            candidates["rf_current"]["validation"]["auroc"]["mean"])
+    assert (candidates["xgb_d4"]["cv"]["auroc_mean"] >
+            candidates["rf_current"]["cv"]["auroc_mean"])

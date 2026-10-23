@@ -47,9 +47,10 @@ We present PHC X, a framework that estimates whether an assistant's next
 reply is at risk of hallucination before generation and selects an
 intervention. It uses conversation history, claim provenance, consistency
 checks, and evidence coverage rather than model internals. On a leak
-controlled synthetic benchmark with a shared prompt pool, XGBoost reaches
-AUROC 0.973 on 107 held out prompts, while a prompt only model scores 0.434.
-A three seed run gives mean AUROC 0.9724 with standard deviation 0.0007. On
+controlled synthetic benchmark with a shared prompt pool, validation-selected
+XGBoost reaches AUROC 0.975 on 107 held out prompts, while a prompt only
+model scores 0.434. A three seed run gives mean AUROC 0.9753 with standard
+deviation 0.0010. On
 the original synthetic benchmark, AUROC is 0.987, but a template lookup
 baseline reaches 0.808, so we report the leak controlled result as the
 primary measure. On a context coverage counterfactual derived from HaluEval,

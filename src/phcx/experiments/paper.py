@@ -270,10 +270,14 @@ def render_tables(stats: Dict[str, Any]) -> str:
     if lc:
         main_probe = stats.get("leakage_probe") or {}
         lc_probe = lc.get("leakage_probe") or {}
+        selection = lc.get("model_selection") or {}
+        selected_model = selection.get("model", "XGBoost")
+        selected_hyper = selection.get("hyperparameters") or {}
+        model_label = f"{selected_model}, depth {selected_hyper.get('max_depth', '--')}"
         main_ab = dict(stats.get("ablation_ranking") or [])
         lc_ab = dict(lc.get("ablation_ranking") or [])
         rows = [
-            ("Classifier", "Random Forest", "XGBoost (depth 3; validation-selected)"),
+            ("Classifier", "Random Forest", _esc(model_label + " (training-CV selected)")),
             ("Templates identifying one category",
              f"{_f((main_probe.get('frac_templates_uniquely_categorised') or 0.0) * 100, 1)}\\%",
              f"{_f((lc_probe.get('frac_templates_uniquely_categorised') or 0.0) * 100, 1)}\\%"),

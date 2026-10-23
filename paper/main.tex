@@ -254,14 +254,14 @@ re-wording can move those into the conversation; the variant therefore
 contains the seven context-borne categories (\lcnrows{} rows).
 
 The standard benchmark uses the prespecified random forest. For the
-leak-controlled variant, we selected the classifier on the validation split
-only: a 12-candidate, three-seed sweep ranked models by mean raw validation
-AUROC, and XGBoost (300 trees, depth 3, learning rate 0.03) won at 0.995
-versus 0.978 for the previous random forest. We then evaluated that choice
-once on the untouched test split. Thus the two columns compare the same
-feature framework under the same label and split protocol, with the model
-selection procedure stated explicitly rather than attributing a learner
-change to the prompt intervention.
+leak-controlled variant, we selected the classifier using five-fold
+GroupKFold by family on the training split only: XGBoost (300 trees, depth 4,
+learning rate 0.03) reached mean AUROC 0.980, versus 0.956 for the previous
+random forest. Validation is reserved for calibration and threshold tuning;
+the selected model is then evaluated on the untouched test split. Thus the
+two columns compare the same feature framework under the same label and
+split protocol, with model selection stated explicitly rather than
+attributing a learner change to the prompt intervention.
 
 The result is the cleanest statement of the contribution we can make.
 With a prompt that says nothing, the prompt-only ablation collapses from

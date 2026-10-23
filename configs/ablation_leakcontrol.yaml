@@ -1,0 +1,67 @@
+experiment: phcx_leakcontrol
+seed: 42
+seeds:
+- 42
+- 123
+- 2024
+dataset:
+  path: data/phc_conversation_leakcontrol
+  split_strategy: family
+  split_ratios:
+  - 0.7
+  - 0.15
+  - 0.15
+model:
+  name: xgb
+  hyperparameters:
+    n_estimators: 300
+    max_depth: 4
+    learning_rate: 0.03
+calibration:
+  method: platt
+variants:
+- id: A_prompt_only
+  use_prompt: true
+  use_history: false
+  use_provenance: false
+  use_contradiction: false
+  use_evidence: false
+- id: B_prompt_history
+  use_prompt: true
+  use_history: true
+  use_provenance: false
+  use_contradiction: false
+  use_evidence: false
+- id: C_history_provenance
+  use_prompt: true
+  use_history: true
+  use_provenance: true
+  use_contradiction: false
+  use_evidence: false
+- id: D_history_provenance_contradiction
+  use_prompt: true
+  use_history: true
+  use_provenance: true
+  use_contradiction: true
+  use_evidence: false
+- id: E_history_provenance_evidence
+  use_prompt: true
+  use_history: true
+  use_provenance: true
+  use_contradiction: false
+  use_evidence: true
+- id: F_full
+  use_prompt: true
+  use_history: true
+  use_provenance: true
+  use_contradiction: true
+  use_evidence: true
+- id: G_full_whitebox
+  use_prompt: true
+  use_history: true
+  use_provenance: true
+  use_contradiction: true
+  use_evidence: true
+  use_whitebox: true
+  requires: white_box
+output: results/raw/ablation

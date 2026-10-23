@@ -41,9 +41,9 @@ feature/training protocol. Two benchmark changes:
    `temporal_inconsistency`, `unsupported_presupposition`,
    `referential_ambiguity` and `short_benign` are excluded.
 
-The leak-controlled variant uses XGBoost depth 3 rather than the standard
-benchmark's RF. It was selected by a three-seed validation-only sweep, not by
-looking at test results. Details are recorded in
+The leak-controlled variant uses XGBoost depth 4 rather than the standard
+benchmark's RF. It was selected by five-fold GroupKFold over training
+families, not by looking at validation or test results. Details are recorded in
 `reports/model_selection_leakcontrol.json`; reproduce the sweep with
 `python3 scripts/sweep_leakcontrol_models.py`.
 
@@ -68,14 +68,14 @@ phc ablation --config configs/ablation.yaml \
 | templates identifying one category | 84.2 % | 0.0 % |
 | template lookup AUROC | 0.808 | 0.635 |
 | A: prompt only | 0.853 | **0.434** |
-| B: prompt + history | 0.850 | 0.709 |
-| C: + provenance | 0.885 | 0.710 |
-| D: + contradiction | 0.900 | 0.707 |
-| E: + evidence | 0.985 | 0.974 |
-| F: full | 0.987 | **0.973** |
-| model | RF | XGBoost depth 3 |
-| test AUROC, seed 42 | 0.987 | 0.973 |
-| test AUROC, 3-seed mean ± SD | 0.9867 ± 0.0002 | **0.9724 ± 0.0007** |
+| B: prompt + history | 0.850 | 0.749 |
+| C: + provenance | 0.885 | 0.779 |
+| D: + contradiction | 0.900 | 0.783 |
+| E: + evidence | 0.985 | 0.975 |
+| F: full | 0.987 | **0.975** |
+| model | RF | XGBoost depth 4 |
+| test AUROC, seed 42 | 0.987 | 0.975 |
+| test AUROC, 3-seed mean ± SD | 0.9867 ± 0.0002 | **0.9753 ± 0.0010** |
 | action-level gates | PASS | PASS |
 
 Three things follow.
@@ -89,9 +89,9 @@ were carrying the signal all along — the artifact was available to
 *baselines*, not to the model.
 
 **The ablation ladder becomes interpretable.** With a clean prompt, the
-prompt alone is at chance. Adding history raises AUROC to 0.709; provenance
-adds little on this small split; evidence coverage raises it to 0.974. The
-full model holds 0.973.
+prompt alone is at chance. Adding history raises AUROC to 0.749; provenance
+adds 0.030; contradiction adds 0.004; evidence coverage raises it to 0.975.
+The full model holds 0.975.
 
 ## Generalisation stress tests
 

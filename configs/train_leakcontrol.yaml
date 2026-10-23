@@ -27,13 +27,13 @@ features:
   use_whitebox: false
 
 model:
-  # Selected on validation only: XGBoost depth 3 beat the RF baseline in
-  # mean AUROC across seeds 42/123/2024 (0.995 vs 0.978).  The held-out test
-  # split is used only for the final, one-time comparison.
+  # Selected by five-fold GroupKFold over training families only: XGBoost
+  # depth 4 beat depth 3 and the RF baseline. Validation is reserved for
+  # calibration/thresholds; the test split is untouched until final reporting.
   name: xgb
   hyperparameters:
     n_estimators: 300
-    max_depth: 3
+    max_depth: 4
     learning_rate: 0.03
 
 calibration:

@@ -1,73 +1,291 @@
 {
-  "experiment": "leakcontrol_validation_model_sweep",
+  "experiment": "leakcontrol_grouped_cv_model_sweep",
   "data_dir": "data/phc_conversation_leakcontrol",
-  "validation_only": true,
+  "selection_split": "train only",
+  "cv": "5-fold GroupKFold by family_id",
   "seeds": [
     42,
     123,
     2024
   ],
-  "selection_metric": "mean raw validation AUROC across seeds",
+  "selection_metric": "mean raw AUROC over all grouped validation folds and seeds",
+  "validation_split_used_for_selection": false,
   "test_split_used_for_selection": false,
   "selected": {
-    "name": "xgb_d3",
+    "name": "xgb_d4",
     "model": "xgb",
     "hyperparameters": {
       "n_estimators": 300,
-      "max_depth": 3,
+      "max_depth": 4,
       "learning_rate": 0.03
     },
-    "validation": {
-      "auroc": {
-        "mean": 0.9948240165631469,
-        "std": 0.00018299864937539758,
-        "values": [
-          0.9945652173913043,
-          0.9949534161490683,
-          0.9949534161490683
-        ]
-      },
-      "auprc": {
-        "mean": 0.9958432674798646,
-        "std": 0.0001400443384512449,
-        "values": [
-          0.9956452148770932,
-          0.9959422937812502,
-          0.9959422937812502
-        ]
-      },
-      "brier_raw": {
-        "mean": 0.031079787472872152,
-        "std": 0.000451046671278994,
-        "values": [
-          0.03063034368541001,
-          0.03091250826846502,
-          0.03169651046474142
-        ]
-      }
+    "cv": {
+      "auroc_mean": 0.9795664507190758,
+      "auroc_std": 0.005766748069746763,
+      "auprc_mean": 0.9884856956394248,
+      "auprc_std": 0.00445031724152325
     },
     "runs": [
       {
         "seed": 42,
-        "auroc": 0.9945652173913043,
-        "auprc": 0.9956452148770932,
-        "brier_raw": 0.03063034368541001
+        "fold": 0,
+        "n_valid": 99,
+        "n_families_valid": 33,
+        "auroc": 0.9909456740442656,
+        "auprc": 0.9967064566146397
+      },
+      {
+        "seed": 42,
+        "fold": 1,
+        "n_valid": 98,
+        "n_families_valid": 32,
+        "auroc": 0.972027972027972,
+        "auprc": 0.9873976093556569
+      },
+      {
+        "seed": 42,
+        "fold": 2,
+        "n_valid": 98,
+        "n_families_valid": 32,
+        "auroc": 0.9795918367346939,
+        "auprc": 0.9892515726741485
+      },
+      {
+        "seed": 42,
+        "fold": 3,
+        "n_valid": 98,
+        "n_families_valid": 32,
+        "auroc": 0.9775353016688062,
+        "auprc": 0.9850674124244797
+      },
+      {
+        "seed": 42,
+        "fold": 4,
+        "n_valid": 98,
+        "n_families_valid": 32,
+        "auroc": 0.9776785714285714,
+        "auprc": 0.9837634060360347
       },
       {
         "seed": 123,
-        "auroc": 0.9949534161490683,
-        "auprc": 0.9959422937812502,
-        "brier_raw": 0.03091250826846502
+        "fold": 0,
+        "n_valid": 99,
+        "n_families_valid": 33,
+        "auroc": 0.9904426559356136,
+        "auprc": 0.9965215572641993
+      },
+      {
+        "seed": 123,
+        "fold": 1,
+        "n_valid": 98,
+        "n_families_valid": 32,
+        "auroc": 0.972960372960373,
+        "auprc": 0.9877959176261599
+      },
+      {
+        "seed": 123,
+        "fold": 2,
+        "n_valid": 98,
+        "n_families_valid": 32,
+        "auroc": 0.980498866213152,
+        "auprc": 0.9897543578393398
+      },
+      {
+        "seed": 123,
+        "fold": 3,
+        "n_valid": 98,
+        "n_families_valid": 32,
+        "auroc": 0.9792468977321352,
+        "auprc": 0.9861726183484761
+      },
+      {
+        "seed": 123,
+        "fold": 4,
+        "n_valid": 98,
+        "n_families_valid": 32,
+        "auroc": 0.9764030612244898,
+        "auprc": 0.9829612014717162
       },
       {
         "seed": 2024,
-        "auroc": 0.9949534161490683,
-        "auprc": 0.9959422937812502,
-        "brier_raw": 0.03169651046474142
+        "fold": 0,
+        "n_valid": 99,
+        "n_families_valid": 33,
+        "auroc": 0.9879275653923542,
+        "auprc": 0.9956059081763308
+      },
+      {
+        "seed": 2024,
+        "fold": 1,
+        "n_valid": 98,
+        "n_families_valid": 32,
+        "auroc": 0.9724941724941725,
+        "auprc": 0.987653869752186
+      },
+      {
+        "seed": 2024,
+        "fold": 2,
+        "n_valid": 98,
+        "n_families_valid": 32,
+        "auroc": 0.9809523809523809,
+        "auprc": 0.9900235802814913
+      },
+      {
+        "seed": 2024,
+        "fold": 3,
+        "n_valid": 98,
+        "n_families_valid": 32,
+        "auroc": 0.9779632006846384,
+        "auprc": 0.9854234357292089
+      },
+      {
+        "seed": 2024,
+        "fold": 4,
+        "n_valid": 98,
+        "n_families_valid": 32,
+        "auroc": 0.9768282312925171,
+        "auprc": 0.9831865309973039
       }
     ]
   },
   "candidates": [
+    {
+      "name": "xgb_d4",
+      "model": "xgb",
+      "hyperparameters": {
+        "n_estimators": 300,
+        "max_depth": 4,
+        "learning_rate": 0.03
+      },
+      "cv": {
+        "auroc_mean": 0.9795664507190758,
+        "auroc_std": 0.005766748069746763,
+        "auprc_mean": 0.9884856956394248,
+        "auprc_std": 0.00445031724152325
+      },
+      "runs": [
+        {
+          "seed": 42,
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9909456740442656,
+          "auprc": 0.9967064566146397
+        },
+        {
+          "seed": 42,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.972027972027972,
+          "auprc": 0.9873976093556569
+        },
+        {
+          "seed": 42,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9795918367346939,
+          "auprc": 0.9892515726741485
+        },
+        {
+          "seed": 42,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9775353016688062,
+          "auprc": 0.9850674124244797
+        },
+        {
+          "seed": 42,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9776785714285714,
+          "auprc": 0.9837634060360347
+        },
+        {
+          "seed": 123,
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9904426559356136,
+          "auprc": 0.9965215572641993
+        },
+        {
+          "seed": 123,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.972960372960373,
+          "auprc": 0.9877959176261599
+        },
+        {
+          "seed": 123,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.980498866213152,
+          "auprc": 0.9897543578393398
+        },
+        {
+          "seed": 123,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9792468977321352,
+          "auprc": 0.9861726183484761
+        },
+        {
+          "seed": 123,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9764030612244898,
+          "auprc": 0.9829612014717162
+        },
+        {
+          "seed": 2024,
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9879275653923542,
+          "auprc": 0.9956059081763308
+        },
+        {
+          "seed": 2024,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9724941724941725,
+          "auprc": 0.987653869752186
+        },
+        {
+          "seed": 2024,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9809523809523809,
+          "auprc": 0.9900235802814913
+        },
+        {
+          "seed": 2024,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9779632006846384,
+          "auprc": 0.9854234357292089
+        },
+        {
+          "seed": 2024,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9768282312925171,
+          "auprc": 0.9831865309973039
+        }
+      ]
+    },
     {
       "name": "xgb_d3",
       "model": "xgb",
@@ -76,53 +294,406 @@
         "max_depth": 3,
         "learning_rate": 0.03
       },
-      "validation": {
-        "auroc": {
-          "mean": 0.9948240165631469,
-          "std": 0.00018299864937539758,
-          "values": [
-            0.9945652173913043,
-            0.9949534161490683,
-            0.9949534161490683
-          ]
-        },
-        "auprc": {
-          "mean": 0.9958432674798646,
-          "std": 0.0001400443384512449,
-          "values": [
-            0.9956452148770932,
-            0.9959422937812502,
-            0.9959422937812502
-          ]
-        },
-        "brier_raw": {
-          "mean": 0.031079787472872152,
-          "std": 0.000451046671278994,
-          "values": [
-            0.03063034368541001,
-            0.03091250826846502,
-            0.03169651046474142
-          ]
-        }
+      "cv": {
+        "auroc_mean": 0.9779386324883603,
+        "auroc_std": 0.006819309020453332,
+        "auprc_mean": 0.9874492234006477,
+        "auprc_std": 0.005289668921105143
       },
       "runs": [
         {
           "seed": 42,
-          "auroc": 0.9945652173913043,
-          "auprc": 0.9956452148770932,
-          "brier_raw": 0.03063034368541001
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9894366197183099,
+          "auprc": 0.9961767976278725
+        },
+        {
+          "seed": 42,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9701631701631701,
+          "auprc": 0.9863000052028816
+        },
+        {
+          "seed": 42,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9800453514739229,
+          "auprc": 0.989721812154635
+        },
+        {
+          "seed": 42,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9732563115104835,
+          "auprc": 0.9819937023265968
+        },
+        {
+          "seed": 42,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9751275510204082,
+          "auprc": 0.9819259013069266
         },
         {
           "seed": 123,
-          "auroc": 0.9949534161490683,
-          "auprc": 0.9959422937812502,
-          "brier_raw": 0.03091250826846502
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.989185110663984,
+          "auprc": 0.9961767976278725
+        },
+        {
+          "seed": 123,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9710955710955711,
+          "auprc": 0.986745838388113
+        },
+        {
+          "seed": 123,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9800453514739229,
+          "auprc": 0.9896925148026566
+        },
+        {
+          "seed": 123,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9736842105263158,
+          "auprc": 0.9823538037291023
+        },
+        {
+          "seed": 123,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9751275510204082,
+          "auprc": 0.9820066210129832
         },
         {
           "seed": 2024,
-          "auroc": 0.9949534161490683,
-          "auprc": 0.9959422937812502,
-          "brier_raw": 0.03169651046474142
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9911971830985915,
+          "auprc": 0.9968523172012311
+        },
+        {
+          "seed": 2024,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9701631701631701,
+          "auprc": 0.9865212750812932
+        },
+        {
+          "seed": 2024,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9800453514739229,
+          "auprc": 0.9896899938539788
+        },
+        {
+          "seed": 2024,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9728284124946512,
+          "auprc": 0.9818438139730056
+        },
+        {
+          "seed": 2024,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9776785714285714,
+          "auprc": 0.9837371567205667
+        }
+      ]
+    },
+    {
+      "name": "lgbm_d4",
+      "model": "lgbm",
+      "hyperparameters": {
+        "n_estimators": 300,
+        "max_depth": 4,
+        "learning_rate": 0.03
+      },
+      "cv": {
+        "auroc_mean": 0.9773487997966027,
+        "auroc_std": 0.006749296541741138,
+        "auprc_mean": 0.9871513232688377,
+        "auprc_std": 0.005627197020763089
+      },
+      "runs": [
+        {
+          "seed": 42,
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9904426559356136,
+          "auprc": 0.996524869940363
+        },
+        {
+          "seed": 42,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.975990675990676,
+          "auprc": 0.9894391761557902
+        },
+        {
+          "seed": 42,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9723356009070295,
+          "auprc": 0.986053200461042
+        },
+        {
+          "seed": 42,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9758237056054772,
+          "auprc": 0.9838984532341498
+        },
+        {
+          "seed": 42,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9721513605442177,
+          "auprc": 0.9798409165528436
+        },
+        {
+          "seed": 123,
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9904426559356136,
+          "auprc": 0.996524869940363
+        },
+        {
+          "seed": 123,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.975990675990676,
+          "auprc": 0.9894391761557902
+        },
+        {
+          "seed": 123,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9723356009070295,
+          "auprc": 0.986053200461042
+        },
+        {
+          "seed": 123,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9758237056054772,
+          "auprc": 0.9838984532341498
+        },
+        {
+          "seed": 123,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9721513605442177,
+          "auprc": 0.9798409165528436
+        },
+        {
+          "seed": 2024,
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9904426559356136,
+          "auprc": 0.996524869940363
+        },
+        {
+          "seed": 2024,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.975990675990676,
+          "auprc": 0.9894391761557902
+        },
+        {
+          "seed": 2024,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9723356009070295,
+          "auprc": 0.986053200461042
+        },
+        {
+          "seed": 2024,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9758237056054772,
+          "auprc": 0.9838984532341498
+        },
+        {
+          "seed": 2024,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9721513605442177,
+          "auprc": 0.9798409165528436
+        }
+      ]
+    },
+    {
+      "name": "xgb_d3_slow",
+      "model": "xgb",
+      "hyperparameters": {
+        "n_estimators": 500,
+        "max_depth": 3,
+        "learning_rate": 0.01
+      },
+      "cv": {
+        "auroc_mean": 0.9752778347392212,
+        "auroc_std": 0.008048505413825553,
+        "auprc_mean": 0.9861016392007529,
+        "auprc_std": 0.005876266057569144
+      },
+      "runs": [
+        {
+          "seed": 42,
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9869215291750503,
+          "auprc": 0.9953454158207512
+        },
+        {
+          "seed": 42,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9655011655011655,
+          "auprc": 0.984053183791606
+        },
+        {
+          "seed": 42,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9823129251700681,
+          "auprc": 0.9906458119472837
+        },
+        {
+          "seed": 42,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9689773213521609,
+          "auprc": 0.9799084906088394
+        },
+        {
+          "seed": 42,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9747023809523809,
+          "auprc": 0.9818246700723362
+        },
+        {
+          "seed": 123,
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9869215291750503,
+          "auprc": 0.9953454158207512
+        },
+        {
+          "seed": 123,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.965967365967366,
+          "auprc": 0.984296983707537
+        },
+        {
+          "seed": 123,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.981859410430839,
+          "auprc": 0.9902834505250808
+        },
+        {
+          "seed": 123,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9694052203679931,
+          "auprc": 0.9801541460823655
+        },
+        {
+          "seed": 123,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9713010204081632,
+          "auprc": 0.979912207975025
+        },
+        {
+          "seed": 2024,
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9869215291750503,
+          "auprc": 0.9953454158207512
+        },
+        {
+          "seed": 2024,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9645687645687646,
+          "auprc": 0.9835200458668168
+        },
+        {
+          "seed": 2024,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.98140589569161,
+          "auprc": 0.9899068308046203
+        },
+        {
+          "seed": 2024,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9685494223363287,
+          "auprc": 0.9795970542666992
+        },
+        {
+          "seed": 2024,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9738520408163265,
+          "auprc": 0.981385464900831
         }
       ]
     },
@@ -134,227 +705,543 @@
         "max_depth": 3,
         "learning_rate": 0.03
       },
-      "validation": {
-        "auroc": {
-          "mean": 0.9945652173913043,
-          "std": 0.0,
-          "values": [
-            0.9945652173913043,
-            0.9945652173913043,
-            0.9945652173913043
-          ]
-        },
-        "auprc": {
-          "mean": 0.9955921537252278,
-          "std": 1.1102230246251565e-16,
-          "values": [
-            0.9955921537252277,
-            0.9955921537252277,
-            0.9955921537252277
-          ]
-        },
-        "brier_raw": {
-          "mean": 0.036744392350200536,
-          "std": 0.0,
-          "values": [
-            0.036744392350200536,
-            0.036744392350200536,
-            0.036744392350200536
-          ]
-        }
+      "cv": {
+        "auroc_mean": 0.9724291462908563,
+        "auroc_std": 0.008230664531328176,
+        "auprc_mean": 0.9844977463856551,
+        "auprc_std": 0.006585967320209362
       },
       "runs": [
         {
           "seed": 42,
-          "auroc": 0.9945652173913043,
-          "auprc": 0.9955921537252277,
-          "brier_raw": 0.036744392350200536
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.988682092555332,
+          "auprc": 0.996069753416577
+        },
+        {
+          "seed": 42,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9699300699300699,
+          "auprc": 0.9863942425653464
+        },
+        {
+          "seed": 42,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9664399092970521,
+          "auprc": 0.9831840575321278
+        },
+        {
+          "seed": 42,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9696191698759092,
+          "auprc": 0.9797935196030466
+        },
+        {
+          "seed": 42,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9674744897959183,
+          "auprc": 0.9770471588111784
         },
         {
           "seed": 123,
-          "auroc": 0.9945652173913043,
-          "auprc": 0.9955921537252277,
-          "brier_raw": 0.036744392350200536
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.988682092555332,
+          "auprc": 0.996069753416577
+        },
+        {
+          "seed": 123,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9699300699300699,
+          "auprc": 0.9863942425653464
+        },
+        {
+          "seed": 123,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9664399092970521,
+          "auprc": 0.9831840575321278
+        },
+        {
+          "seed": 123,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9696191698759092,
+          "auprc": 0.9797935196030466
+        },
+        {
+          "seed": 123,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9674744897959183,
+          "auprc": 0.9770471588111784
         },
         {
           "seed": 2024,
-          "auroc": 0.9945652173913043,
-          "auprc": 0.9955921537252277,
-          "brier_raw": 0.036744392350200536
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.988682092555332,
+          "auprc": 0.996069753416577
+        },
+        {
+          "seed": 2024,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9699300699300699,
+          "auprc": 0.9863942425653464
+        },
+        {
+          "seed": 2024,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9664399092970521,
+          "auprc": 0.9831840575321278
+        },
+        {
+          "seed": 2024,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9696191698759092,
+          "auprc": 0.9797935196030466
+        },
+        {
+          "seed": 2024,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9674744897959183,
+          "auprc": 0.9770471588111784
         }
       ]
     },
     {
-      "name": "xgb_d4",
+      "name": "xgb_d2",
       "model": "xgb",
       "hyperparameters": {
         "n_estimators": 300,
-        "max_depth": 4,
+        "max_depth": 2,
         "learning_rate": 0.03
       },
-      "validation": {
-        "auroc": {
-          "mean": 0.9931418219461698,
-          "std": 0.00048416891650800744,
-          "values": [
-            0.9930124223602484,
-            0.9926242236024845,
-            0.9937888198757764
-          ]
-        },
-        "auprc": {
-          "mean": 0.9944272324165905,
-          "std": 0.0004018468029442433,
-          "values": [
-            0.9943030603408614,
-            0.9940090505591493,
-            0.9949695863497612
-          ]
-        },
-        "brier_raw": {
-          "mean": 0.03345687558094948,
-          "std": 0.0008653066498475992,
-          "values": [
-            0.032598303623856226,
-            0.03464132647080721,
-            0.03313099664818501
-          ]
-        }
+      "cv": {
+        "auroc_mean": 0.9688450506258864,
+        "auroc_std": 0.012977814730082944,
+        "auprc_mean": 0.9823127112092255,
+        "auprc_std": 0.009083397733341323
       },
       "runs": [
         {
           "seed": 42,
-          "auroc": 0.9930124223602484,
-          "auprc": 0.9943030603408614,
-          "brier_raw": 0.032598303623856226
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9876760563380281,
+          "auprc": 0.9958662435261302
+        },
+        {
+          "seed": 42,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9564102564102565,
+          "auprc": 0.978957850663604
+        },
+        {
+          "seed": 42,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9800453514739229,
+          "auprc": 0.988840328035367
+        },
+        {
+          "seed": 42,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9646983311938383,
+          "auprc": 0.9774765249401184
+        },
+        {
+          "seed": 42,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.954719387755102,
+          "auprc": 0.9701773469914257
         },
         {
           "seed": 123,
-          "auroc": 0.9926242236024845,
-          "auprc": 0.9940090505591493,
-          "brier_raw": 0.03464132647080721
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9876760563380281,
+          "auprc": 0.9958662435261302
+        },
+        {
+          "seed": 123,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9585081585081585,
+          "auprc": 0.9799717233878947
+        },
+        {
+          "seed": 123,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9800453514739229,
+          "auprc": 0.9888482877577307
+        },
+        {
+          "seed": 123,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9623448866067608,
+          "auprc": 0.9760088843821534
+        },
+        {
+          "seed": 123,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9559948979591837,
+          "auprc": 0.9707740627014105
         },
         {
           "seed": 2024,
-          "auroc": 0.9937888198757764,
-          "auprc": 0.9949695863497612,
-          "brier_raw": 0.03313099664818501
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9881790744466801,
+          "auprc": 0.9960030424317389
+        },
+        {
+          "seed": 2024,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9568764568764568,
+          "auprc": 0.9798242364244234
+        },
+        {
+          "seed": 2024,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9807256235827665,
+          "auprc": 0.9893693259029802
+        },
+        {
+          "seed": 2024,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9640564826700898,
+          "auprc": 0.9765685450959206
+        },
+        {
+          "seed": 2024,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.954719387755102,
+          "auprc": 0.9701380223713552
         }
       ]
     },
     {
-      "name": "rf_depth_none_leaf2",
+      "name": "lgbm_d2",
+      "model": "lgbm",
+      "hyperparameters": {
+        "n_estimators": 300,
+        "max_depth": 2,
+        "learning_rate": 0.03
+      },
+      "cv": {
+        "auroc_mean": 0.9662081468638882,
+        "auroc_std": 0.013564042454684323,
+        "auprc_mean": 0.9804385079141616,
+        "auprc_std": 0.009955141484055668
+      },
+      "runs": [
+        {
+          "seed": 42,
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9889336016096579,
+          "auprc": 0.9962648965022434
+        },
+        {
+          "seed": 42,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9557109557109557,
+          "auprc": 0.9765237636238402
+        },
+        {
+          "seed": 42,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.971655328798186,
+          "auprc": 0.9851635103654146
+        },
+        {
+          "seed": 42,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9646983311938383,
+          "auprc": 0.9779942698109217
+        },
+        {
+          "seed": 42,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9500425170068028,
+          "auprc": 0.9662460992683896
+        },
+        {
+          "seed": 123,
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9889336016096579,
+          "auprc": 0.9962648965022434
+        },
+        {
+          "seed": 123,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9557109557109557,
+          "auprc": 0.9765237636238402
+        },
+        {
+          "seed": 123,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.971655328798186,
+          "auprc": 0.9851635103654146
+        },
+        {
+          "seed": 123,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9646983311938383,
+          "auprc": 0.9779942698109217
+        },
+        {
+          "seed": 123,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9500425170068028,
+          "auprc": 0.9662460992683896
+        },
+        {
+          "seed": 2024,
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9889336016096579,
+          "auprc": 0.9962648965022434
+        },
+        {
+          "seed": 2024,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9557109557109557,
+          "auprc": 0.9765237636238402
+        },
+        {
+          "seed": 2024,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.971655328798186,
+          "auprc": 0.9851635103654146
+        },
+        {
+          "seed": 2024,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9646983311938383,
+          "auprc": 0.9779942698109217
+        },
+        {
+          "seed": 2024,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9500425170068028,
+          "auprc": 0.9662460992683896
+        }
+      ]
+    },
+    {
+      "name": "rf_unlimited_leaf2",
       "model": "rf",
       "hyperparameters": {
         "n_estimators": 500,
         "max_depth": null,
         "min_samples_leaf": 2
       },
-      "validation": {
-        "auroc": {
-          "mean": 0.9821428571428571,
-          "std": 0.0003169629584346712,
-          "values": [
-            0.9821428571428571,
-            0.9817546583850931,
-            0.9825310559006211
-          ]
-        },
-        "auprc": {
-          "mean": 0.9846922679340545,
-          "std": 0.000431544476233851,
-          "values": [
-            0.9841501422218056,
-            0.9847205948502343,
-            0.9852060667301238
-          ]
-        },
-        "brier_raw": {
-          "mean": 0.05290938325981459,
-          "std": 0.000318966186406383,
-          "values": [
-            0.05319900641424755,
-            0.05246507549995437,
-            0.05306406786524185
-          ]
-        }
+      "cv": {
+        "auroc_mean": 0.9659428683418803,
+        "auroc_std": 0.01315419718214175,
+        "auprc_mean": 0.98052209289539,
+        "auprc_std": 0.009938835493241175
       },
       "runs": [
         {
           "seed": 42,
-          "auroc": 0.9821428571428571,
-          "auprc": 0.9841501422218056,
-          "brier_raw": 0.05319900641424755
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9828973843058351,
+          "auprc": 0.9941673636946047
         },
-        {
-          "seed": 123,
-          "auroc": 0.9817546583850931,
-          "auprc": 0.9847205948502343,
-          "brier_raw": 0.05246507549995437
-        },
-        {
-          "seed": 2024,
-          "auroc": 0.9825310559006211,
-          "auprc": 0.9852060667301238,
-          "brier_raw": 0.05306406786524185
-        }
-      ]
-    },
-    {
-      "name": "rf_depth12_leaf2",
-      "model": "rf",
-      "hyperparameters": {
-        "n_estimators": 500,
-        "max_depth": 12,
-        "min_samples_leaf": 2
-      },
-      "validation": {
-        "auroc": {
-          "mean": 0.9818840579710143,
-          "std": 0.00048416891650800744,
-          "values": [
-            0.9813664596273292,
-            0.9817546583850931,
-            0.9825310559006211
-          ]
-        },
-        "auprc": {
-          "mean": 0.9844425915399149,
-          "std": 0.0006445741166281302,
-          "values": [
-            0.9836295270233321,
-            0.9844921808662889,
-            0.9852060667301238
-          ]
-        },
-        "brier_raw": {
-          "mean": 0.05289988274121634,
-          "std": 0.0005101910172025553,
-          "values": [
-            0.053371573216882746,
-            0.05219120203260554,
-            0.05313687297416072
-          ]
-        }
-      },
-      "runs": [
         {
           "seed": 42,
-          "auroc": 0.9813664596273292,
-          "auprc": 0.9836295270233321,
-          "brier_raw": 0.053371573216882746
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9552447552447553,
+          "auprc": 0.9772444885002896
+        },
+        {
+          "seed": 42,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9727891156462585,
+          "auprc": 0.9858724707264916
+        },
+        {
+          "seed": 42,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9689773213521609,
+          "auprc": 0.9797279349948103
+        },
+        {
+          "seed": 42,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9479166666666666,
+          "auprc": 0.964771223950733
         },
         {
           "seed": 123,
-          "auroc": 0.9817546583850931,
-          "auprc": 0.9844921808662889,
-          "brier_raw": 0.05219120203260554
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9849094567404426,
+          "auprc": 0.9948953981023598
+        },
+        {
+          "seed": 123,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9543123543123543,
+          "auprc": 0.9766473374314821
+        },
+        {
+          "seed": 123,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9777777777777777,
+          "auprc": 0.9882663300434691
+        },
+        {
+          "seed": 123,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9685494223363287,
+          "auprc": 0.9795056479820902
+        },
+        {
+          "seed": 123,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9479166666666666,
+          "auprc": 0.965379331261099
         },
         {
           "seed": 2024,
-          "auroc": 0.9825310559006211,
-          "auprc": 0.9852060667301238,
-          "brier_raw": 0.05313687297416072
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9834004024144869,
+          "auprc": 0.9943857369261574
+        },
+        {
+          "seed": 2024,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9543123543123543,
+          "auprc": 0.9765449817267045
+        },
+        {
+          "seed": 2024,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9732426303854875,
+          "auprc": 0.9861078601609631
+        },
+        {
+          "seed": 2024,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9694052203679931,
+          "auprc": 0.9797852739363039
+        },
+        {
+          "seed": 2024,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9474914965986394,
+          "auprc": 0.9645300139932935
         }
       ]
     },
@@ -366,169 +1253,132 @@
         "max_depth": 8,
         "min_samples_leaf": 2
       },
-      "validation": {
-        "auroc": {
-          "mean": 0.9816252587991717,
-          "std": 0.00048416891650800744,
-          "values": [
-            0.9809782608695652,
-            0.9821428571428571,
-            0.9817546583850931
-          ]
-        },
-        "auprc": {
-          "mean": 0.9848547372835948,
-          "std": 0.0005680791706797894,
-          "values": [
-            0.9841909379694282,
-            0.9855785537291988,
-            0.9847947201521576
-          ]
-        },
-        "brier_raw": {
-          "mean": 0.05443225303937632,
-          "std": 0.00048637055742870803,
-          "values": [
-            0.05488753480391237,
-            0.054651124603587654,
-            0.05375809971062895
-          ]
-        }
+      "cv": {
+        "auroc_mean": 0.9640620001975265,
+        "auroc_std": 0.013919948626144752,
+        "auprc_mean": 0.9791829518897582,
+        "auprc_std": 0.010724698018018435
       },
       "runs": [
         {
           "seed": 42,
-          "auroc": 0.9809782608695652,
-          "auprc": 0.9841909379694282,
-          "brier_raw": 0.05488753480391237
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9828973843058351,
+          "auprc": 0.9941769344854234
         },
-        {
-          "seed": 123,
-          "auroc": 0.9821428571428571,
-          "auprc": 0.9855785537291988,
-          "brier_raw": 0.054651124603587654
-        },
-        {
-          "seed": 2024,
-          "auroc": 0.9817546583850931,
-          "auprc": 0.9847947201521576,
-          "brier_raw": 0.05375809971062895
-        }
-      ]
-    },
-    {
-      "name": "rf_depth6_leaf2",
-      "model": "rf",
-      "hyperparameters": {
-        "n_estimators": 500,
-        "max_depth": 6,
-        "min_samples_leaf": 2
-      },
-      "validation": {
-        "auroc": {
-          "mean": 0.9802018633540373,
-          "std": 0.0005489959481261927,
-          "values": [
-            0.9809782608695652,
-            0.9798136645962733,
-            0.9798136645962733
-          ]
-        },
-        "auprc": {
-          "mean": 0.9842629524750409,
-          "std": 0.0005006257379565018,
-          "values": [
-            0.9849642258829122,
-            0.983828048934116,
-            0.9839965826080945
-          ]
-        },
-        "brier_raw": {
-          "mean": 0.05847352534759145,
-          "std": 0.00047572098841800224,
-          "values": [
-            0.05869415086367367,
-            0.05781279549818035,
-            0.058913629680920315
-          ]
-        }
-      },
-      "runs": [
         {
           "seed": 42,
-          "auroc": 0.9809782608695652,
-          "auprc": 0.9849642258829122,
-          "brier_raw": 0.05869415086367367
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9543123543123543,
+          "auprc": 0.9766473374314821
         },
-        {
-          "seed": 123,
-          "auroc": 0.9798136645962733,
-          "auprc": 0.983828048934116,
-          "brier_raw": 0.05781279549818035
-        },
-        {
-          "seed": 2024,
-          "auroc": 0.9798136645962733,
-          "auprc": 0.9839965826080945,
-          "brier_raw": 0.058913629680920315
-        }
-      ]
-    },
-    {
-      "name": "rf_depth_none_leaf5",
-      "model": "rf",
-      "hyperparameters": {
-        "n_estimators": 500,
-        "max_depth": null,
-        "min_samples_leaf": 5
-      },
-      "validation": {
-        "auroc": {
-          "mean": 0.9786490683229814,
-          "std": 0.0003169629584346712,
-          "values": [
-            0.9786490683229814,
-            0.9782608695652174,
-            0.9790372670807453
-          ]
-        },
-        "auprc": {
-          "mean": 0.9828938923234355,
-          "std": 0.0004069171738068452,
-          "values": [
-            0.9830633399104008,
-            0.9823328933826251,
-            0.9832854436772808
-          ]
-        },
-        "brier_raw": {
-          "mean": 0.06249939696191473,
-          "std": 0.001256691702033079,
-          "values": [
-            0.06396824626157704,
-            0.06263144351881772,
-            0.06089850110534942
-          ]
-        }
-      },
-      "runs": [
         {
           "seed": 42,
-          "auroc": 0.9786490683229814,
-          "auprc": 0.9830633399104008,
-          "brier_raw": 0.06396824626157704
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9714285714285714,
+          "auprc": 0.985202553270931
+        },
+        {
+          "seed": 42,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9634146341463414,
+          "auprc": 0.9756262194989025
+        },
+        {
+          "seed": 42,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9445153061224489,
+          "auprc": 0.9621336048150725
         },
         {
           "seed": 123,
-          "auroc": 0.9782608695652174,
-          "auprc": 0.9823328933826251,
-          "brier_raw": 0.06263144351881772
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9874245472837022,
+          "auprc": 0.9956542282186855
+        },
+        {
+          "seed": 123,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9543123543123543,
+          "auprc": 0.9766685850823926
+        },
+        {
+          "seed": 123,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9705215419501134,
+          "auprc": 0.9847257694631806
+        },
+        {
+          "seed": 123,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9646983311938383,
+          "auprc": 0.9764738298111997
+        },
+        {
+          "seed": 123,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9466411564625851,
+          "auprc": 0.9642561312181303
         },
         {
           "seed": 2024,
-          "auroc": 0.9790372670807453,
-          "auprc": 0.9832854436772808,
-          "brier_raw": 0.06089850110534942
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9849094567404426,
+          "auprc": 0.9947757777934134
+        },
+        {
+          "seed": 2024,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9538461538461539,
+          "auprc": 0.9765986179727661
+        },
+        {
+          "seed": 2024,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9727891156462585,
+          "auprc": 0.986012387997203
+        },
+        {
+          "seed": 2024,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9655541292255028,
+          "auprc": 0.9773947721527935
+        },
+        {
+          "seed": 2024,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9436649659863946,
+          "auprc": 0.9613975291348005
         }
       ]
     },
@@ -540,224 +1390,135 @@
         "max_depth": 8,
         "min_samples_leaf": 5
       },
-      "validation": {
-        "auroc": {
-          "mean": 0.9782608695652174,
-          "std": 0.0003169629584346712,
-          "values": [
-            0.9778726708074534,
-            0.9786490683229814,
-            0.9782608695652174
-          ]
-        },
-        "auprc": {
-          "mean": 0.9825956424626754,
-          "std": 5.778612804242653e-05,
-          "values": [
-            0.982664068366593,
-            0.9825227348515762,
-            0.9826001241698571
-          ]
-        },
-        "brier_raw": {
-          "mean": 0.06314303686981221,
-          "std": 0.0005853704679416287,
-          "values": [
-            0.06394466343126148,
-            0.06292120408828109,
-            0.06256324308989406
-          ]
-        }
+      "cv": {
+        "auroc_mean": 0.9563287872079357,
+        "auroc_std": 0.017234929501894772,
+        "auprc_mean": 0.9744396981827089,
+        "auprc_std": 0.013842392146726628
       },
       "runs": [
         {
           "seed": 42,
-          "auroc": 0.9778726708074534,
-          "auprc": 0.982664068366593,
-          "brier_raw": 0.06394466343126148
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9803822937625755,
+          "auprc": 0.9934119787409629
         },
-        {
-          "seed": 123,
-          "auroc": 0.9786490683229814,
-          "auprc": 0.9825227348515762,
-          "brier_raw": 0.06292120408828109
-        },
-        {
-          "seed": 2024,
-          "auroc": 0.9782608695652174,
-          "auprc": 0.9826001241698571,
-          "brier_raw": 0.06256324308989406
-        }
-      ]
-    },
-    {
-      "name": "lr_C10",
-      "model": "lr",
-      "hyperparameters": {
-        "C": 10.0
-      },
-      "validation": {
-        "auroc": {
-          "mean": 0.9506987577639752,
-          "std": 0.0,
-          "values": [
-            0.9506987577639752,
-            0.9506987577639752,
-            0.9506987577639752
-          ]
-        },
-        "auprc": {
-          "mean": 0.9694674758250347,
-          "std": 1.1102230246251565e-16,
-          "values": [
-            0.9694674758250346,
-            0.9694674758250346,
-            0.9694674758250346
-          ]
-        },
-        "brier_raw": {
-          "mean": 0.08952904570699453,
-          "std": 0.0,
-          "values": [
-            0.08952904570699453,
-            0.08952904570699453,
-            0.08952904570699453
-          ]
-        }
-      },
-      "runs": [
         {
           "seed": 42,
-          "auroc": 0.9506987577639752,
-          "auprc": 0.9694674758250346,
-          "brier_raw": 0.08952904570699453
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9463869463869464,
+          "auprc": 0.9725140959400009
         },
-        {
-          "seed": 123,
-          "auroc": 0.9506987577639752,
-          "auprc": 0.9694674758250346,
-          "brier_raw": 0.08952904570699453
-        },
-        {
-          "seed": 2024,
-          "auroc": 0.9506987577639752,
-          "auprc": 0.9694674758250346,
-          "brier_raw": 0.08952904570699453
-        }
-      ]
-    },
-    {
-      "name": "lr_C1",
-      "model": "lr",
-      "hyperparameters": {
-        "C": 1.0
-      },
-      "validation": {
-        "auroc": {
-          "mean": 0.9359472049689441,
-          "std": 0.0,
-          "values": [
-            0.9359472049689441,
-            0.9359472049689441,
-            0.9359472049689441
-          ]
-        },
-        "auprc": {
-          "mean": 0.957203280978257,
-          "std": 1.1102230246251565e-16,
-          "values": [
-            0.9572032809782571,
-            0.9572032809782571,
-            0.9572032809782571
-          ]
-        },
-        "brier_raw": {
-          "mean": 0.10498680818462554,
-          "std": 0.0,
-          "values": [
-            0.10498680818462554,
-            0.10498680818462554,
-            0.10498680818462554
-          ]
-        }
-      },
-      "runs": [
         {
           "seed": 42,
-          "auroc": 0.9359472049689441,
-          "auprc": 0.9572032809782571,
-          "brier_raw": 0.10498680818462554
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9705215419501134,
+          "auprc": 0.9850077765623338
         },
-        {
-          "seed": 123,
-          "auroc": 0.9359472049689441,
-          "auprc": 0.9572032809782571,
-          "brier_raw": 0.10498680818462554
-        },
-        {
-          "seed": 2024,
-          "auroc": 0.9359472049689441,
-          "auprc": 0.9572032809782571,
-          "brier_raw": 0.10498680818462554
-        }
-      ]
-    },
-    {
-      "name": "lr_C01",
-      "model": "lr",
-      "hyperparameters": {
-        "C": 0.1
-      },
-      "validation": {
-        "auroc": {
-          "mean": 0.9041149068322981,
-          "std": 0.0,
-          "values": [
-            0.9041149068322981,
-            0.9041149068322981,
-            0.9041149068322981
-          ]
-        },
-        "auprc": {
-          "mean": 0.9345555439931731,
-          "std": 1.1102230246251565e-16,
-          "values": [
-            0.934555543993173,
-            0.934555543993173,
-            0.934555543993173
-          ]
-        },
-        "brier_raw": {
-          "mean": 0.12943603235606468,
-          "std": 0.0,
-          "values": [
-            0.12943603235606468,
-            0.12943603235606468,
-            0.12943603235606468
-          ]
-        }
-      },
-      "runs": [
         {
           "seed": 42,
-          "auroc": 0.9041149068322981,
-          "auprc": 0.934555543993173,
-          "brier_raw": 0.12943603235606468
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9501497646555412,
+          "auprc": 0.9673603791663202
+        },
+        {
+          "seed": 42,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9347363945578231,
+          "auprc": 0.9545398866218914
         },
         {
           "seed": 123,
-          "auroc": 0.9041149068322981,
-          "auprc": 0.934555543993173,
-          "brier_raw": 0.12943603235606468
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9839034205231388,
+          "auprc": 0.9944392129498063
+        },
+        {
+          "seed": 123,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9463869463869464,
+          "auprc": 0.9724703913260964
+        },
+        {
+          "seed": 123,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9691609977324263,
+          "auprc": 0.984098673485312
+        },
+        {
+          "seed": 123,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9492939666238768,
+          "auprc": 0.9670318048885399
+        },
+        {
+          "seed": 123,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9338860544217688,
+          "auprc": 0.9539018308251129
         },
         {
           "seed": 2024,
-          "auroc": 0.9041149068322981,
-          "auprc": 0.934555543993173,
-          "brier_raw": 0.12943603235606468
+          "fold": 0,
+          "n_valid": 99,
+          "n_families_valid": 33,
+          "auroc": 0.9808853118712274,
+          "auprc": 0.9935499320070333
+        },
+        {
+          "seed": 2024,
+          "fold": 1,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9463869463869464,
+          "auprc": 0.9725715907455676
+        },
+        {
+          "seed": 2024,
+          "fold": 2,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9705215419501134,
+          "auprc": 0.9852125538581715
+        },
+        {
+          "seed": 2024,
+          "fold": 3,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9492939666238768,
+          "auprc": 0.9669890587860345
+        },
+        {
+          "seed": 2024,
+          "fold": 4,
+          "n_valid": 98,
+          "n_families_valid": 32,
+          "auroc": 0.9330357142857143,
+          "auprc": 0.9534963068374518
         }
       ]
     }
   ],
-  "note": "The test split is not read by this script. The selected candidate is evaluated once by the normal training/report pipeline."
+  "note": "Neither validation nor test split participates in model selection. The selected candidate is calibrated on validation and evaluated once on test by the standard pipeline."
 }
