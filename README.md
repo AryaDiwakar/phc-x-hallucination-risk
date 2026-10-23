@@ -168,14 +168,14 @@ on val only), `stats` (paired significance between two checkpoints).
 ## Tests
 
 ```bash
-python3 -m pytest tests -q        # 154 tests, ~65 s
+python3 -m pytest tests -q        # 157 tests, ~65 s
 ```
 
 Covers utils, memory, the five consistency engines, retrieval/features, risk
 + policy, dataset generation/leakage, end-to-end pipeline, API endpoints, the
 browser extension manifest/sources, the **CLI** (every subcommand, against a
-tiny dataset), the **human-validation packet** (blinding + stratification) and
-the **annotation analysis** (agreement, calibration, false-block rate), and
+tiny dataset), the **human-validation packet** (blinding + stratification),
+the **annotation analysis** (agreement, calibration, false-block rate),
 conference-paper generation, and one regression test per defect fixed in the
 correctness sweep.
 

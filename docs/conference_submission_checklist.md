@@ -1,19 +1,23 @@
 # Conference-format draft checklist
 
 The supplied `conference-template-a4.docx` is an IEEE-style A4 Word template.
-The repository's existing `paper/main.tex` remains the research draft; the
-separate `paper/conference.tex` is generated in IEEEtran's A4 conference,
-two-column layout so the existing draft is preserved.
+The repository's existing `paper/main.tex` remains the research draft. The
+separate Word draft is filled using the supplied template's A4 dimensions,
+Times New Roman, black text, and two-column body layout; the LaTeX twin uses
+IEEEtran. Both preserve the research draft.
 
 ## Build
 
 ```bash
+python3 scripts/build_conference_docx.py
 python3 scripts/build_conference_paper.py
 cd paper
 tectonic -X compile conference.tex
 ```
 
-The generated `conference.pdf` is a layout draft, not submission-ready yet.
+Outputs: `paper/conference_submission.docx` (the filled Word template) and
+`paper/conference.pdf` (its IEEEtran LaTeX twin). They are drafts, not
+submission-ready yet.
 
 ## Template requirements handled
 
@@ -29,7 +33,7 @@ The generated `conference.pdf` is a layout draft, not submission-ready yet.
 
 ## Author action required before submission
 
-The source intentionally leaves `Affiliation and contact details to be
+The draft intentionally leaves `Affiliation and contact details to be
 completed`. The repository does not identify the authors' official
 departments, institution name, city, or submission email/ORCID. Replace that
 placeholder using the actual author information; do not submit it as-is.
