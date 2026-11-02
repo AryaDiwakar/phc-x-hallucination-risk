@@ -32,12 +32,40 @@ def test_filled_word_template_uses_only_black_times_new_roman_runs():
         assert run.font.color.rgb == RGBColor(0, 0, 0)
 
 
+def test_results_tables_stay_within_one_ieee_column():
+    doc = Document(DOCX)
+    for table in doc.tables[1:]:
+        width = table._tbl.tblPr.find(qn("w:tblW"))
+        assert width is not None
+        assert int(width.get(qn("w:w"))) <= 4810
+
+
+def test_paper_title_and_headings_are_bold_uppercase():
+    doc = Document(DOCX)
+    title = doc.paragraphs[0]
+    assert title.text == title.text.upper()
+    assert all(run.bold for run in title.runs)
+    assert all(run.font.size.pt == 20 for run in title.runs)
+    headings = [p for p in doc.paragraphs if p.style.name.startswith("Heading")]
+    assert headings
+    for paragraph in headings:
+        assert paragraph.text == paragraph.text.upper()
+        assert all(run.bold for run in paragraph.runs)
+    body = next(p for p in doc.paragraphs if p.style.name == "Body Text")
+    assert not any(run.bold for run in body.runs)
+
+
 def test_filled_word_template_contains_paper_not_template_guidance():
     doc = Document(DOCX)
     text = "\n".join(p.text for p in doc.paragraphs)
-    assert "Provenance Aware Conversational" in text
-    assert "Abstract." in text
-    assert "Human annotation remains pending" in text
+    author_text = "\n".join(c.text for t in doc.tables[:1] for c in t.rows[0].cells)
+    assert "PHC-X: PROVENANCE-AWARE" in text
+    assert "Abstract—" in text
+    assert "no human annotations have been collected" in text
+    assert "23BDS0023" in author_text and "23BDS0212" in author_text
+    assert "23BDS0019" in author_text
+    assert author_text.count("School of Computer Science\nand Engineering") == 3
+    assert "VIT Vellore" in author_text
     assert "This electronic document is a" not in text
     assert "Do Not Use Symbols" not in text
-    assert len(doc.tables) == 1
+    assert len(doc.tables) == 7  # author grid plus six compact, one-column tables

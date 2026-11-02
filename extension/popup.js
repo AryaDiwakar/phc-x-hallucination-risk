@@ -4,7 +4,7 @@
 const DEFAULTS = {
   apiBase: "http://127.0.0.1:8000",
   enabled: true,
-  blockOnCritical: true,
+  blockOnCritical: false,
   showBadge: true,
 };
 
@@ -47,7 +47,7 @@ async function checkHealth() {
     status.textContent = "service online";
     status.className = "status-card ok";
     $("model").textContent =
-      `model: ${resp.health.model} · uptime ${resp.health.uptime_s}s · ` +
+      `API v${resp.health.version} · model: ${resp.health.model} · uptime ${resp.health.uptime_s}s · ` +
       `${resp.health.n_requests} requests`;
   } else {
     status.textContent = `offline: ${(resp && resp.error) || "no response"}`;

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "PHC-X — Pre-generation Hallucination Guard",
-  "version": "0.1.0",
-  "description": "Provenance-aware pre-generation hallucination risk prediction: check the prompt against conversation history and local evidence BEFORE the model answers, then suggest retrieve/clarify/abstain interventions.",
+  "name": "PHC-X — ChatGPT Hallucination Guard",
+  "version": "0.2.0",
+  "description": "Checks your full loaded ChatGPT conversation locally before sending a prompt and flags context, consistency, and evidence risks.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -15,7 +15,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "http://127.0.0.1/*",
+        "http://localhost/*"
+      ],
       "js": ["content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"

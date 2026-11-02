@@ -7,10 +7,10 @@
 "use strict";
 
 const API_DEFAULT = "http://127.0.0.1:8000";
-let CFG = { enabled: true, blockOnCritical: true };
+let CFG = { enabled: true, blockOnCritical: false };
 let bypassUntil = 0;
 
-chrome.storage.local.get({ enabled: true, blockOnCritical: true, apiBase: API_DEFAULT })
+chrome.storage.local.get({ enabled: true, blockOnCritical: false, apiBase: API_DEFAULT })
   .then((s) => { CFG = s; });
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.enabled) CFG.enabled = changes.enabled.newValue;
@@ -44,8 +44,26 @@ function clearComposer(el) {
   }
 }
 
+function setComposerText(el, text) {
+  if (!el) return;
+  el.focus();
+  if (el.tagName === "TEXTAREA" || el.tagName === "INPUT") {
+    const proto = el.tagName === "TEXTAREA"
+      ? window.HTMLTextAreaElement.prototype
+      : window.HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, "value").set;
+    setter.call(el, text);
+    el.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+  } else {
+    el.textContent = text;
+    el.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+  }
+}
+
 const HISTORY_SELECTORS = [
-  "[data-message-author-role]",
+  // ChatGPT marks each turn with this role attribute. Prefer it over generic
+  // message selectors so the full transcript is captured exactly once.
+  "[data-message-author-role='user'], [data-message-author-role='assistant']",
   "[data-role='user'], [data-role='assistant']",
   "[class*='message'][data-author]",
   ".message",
@@ -55,12 +73,12 @@ const HISTORY_SELECTORS = [
   "[class~='msg']",
 ];
 
-function collectHistory(limit = 8) {
+function collectHistory() {
   for (const sel of HISTORY_SELECTORS) {
     const nodes = [...document.querySelectorAll(sel)];
     if (nodes.length < 2) continue;
     const turns = [];
-    for (const n of nodes.slice(-limit)) {
+    for (const n of nodes) {
       const text = (n.innerText || "").trim();
       if (!text) continue;
       let role = "assistant";
@@ -74,8 +92,9 @@ function collectHistory(limit = 8) {
       else if (low.includes("assistant") || low.includes("bot") || low.includes("gpt") ||
                low.includes("claude") || low.includes("model")) role = "assistant";
       else if (/^you|user/i.test(n.className || "")) role = "user";
-      if (text.length > 1200) continue;
-      turns.push({ role, content: text.slice(0, 1200) });
+      // Do not truncate by turn count or character count: PHC-X's consistency
+      // and contamination checks need the whole conversation for context.
+      turns.push({ role, content: text });
     }
     if (turns.length >= 2) return turns;
   }
@@ -170,6 +189,29 @@ function renderResult(res, anchor, onProceed) {
     p.appendChild(reason);
   }
 
+  if (res.risk_adjustment && Number.isFinite(res.model_risk_score) &&
+      Math.abs(res.model_risk_score - score) > 0.001) {
+    const adjustment = document.createElement("div");
+    adjustment.className = "phcx-reason";
+    adjustment.textContent =
+      `Raw model estimate ${res.model_risk_score.toFixed(2)}; ` +
+      `source-aware adjustment: ${res.risk_adjustment}.`;
+    p.appendChild(adjustment);
+  }
+  if (res.risk_method && res.risk_method.startsWith("heuristic_rf_ensemble")) {
+    const method = document.createElement("div");
+    method.className = "phcx-reason";
+    method.textContent = `Experimental ensemble: 85% transparent heuristic + 15% trained model (raw model estimate ${Number(res.model_risk_score || 0).toFixed(2)}).`;
+    p.appendChild(method);
+  }
+
+  if (res.context_support && res.context_support.supported) {
+    const grounded = document.createElement("div");
+    grounded.className = "phcx-reason";
+    grounded.textContent = "Directly grounded in an earlier user-provided turn (not independently verified).";
+    p.appendChild(grounded);
+  }
+
   if (factors.length) {
     const ul = document.createElement("div");
     ul.className = "phcx-factors";
@@ -193,6 +235,35 @@ function renderResult(res, anchor, onProceed) {
 
   const buttons = document.createElement("div");
   buttons.className = "phcx-buttons";
+
+  const improve = document.createElement("button");
+  improve.textContent = "Improve prompt";
+  improve.onclick = async () => {
+    improve.disabled = true;
+    improve.textContent = "improving…";
+    p.dataset.phcxEnhancing = "true";
+    const resp = await sendMessage({
+      type: "phc-enhance",
+      payload: {
+        prompt: composerText(anchor).trim(),
+        conversation_history: collectHistory(),
+        evidence: [],
+        conversation_id: location.hostname,
+      },
+    });
+    if (!resp.ok) {
+      p.dataset.phcxEnhancing = "false";
+      improve.disabled = false;
+      improve.textContent = "Improve prompt";
+      const message = document.createElement("div");
+      message.className = "phcx-reason";
+      message.textContent = `Could not create a rewrite: ${resp.error || "service error"}`;
+      p.appendChild(message);
+      return;
+    }
+    renderEnhancement(anchor, resp.result);
+  };
+  buttons.appendChild(improve);
 
   if (blocking) {
     // intervention gate: nothing is sent until the user explicitly overrides
@@ -219,9 +290,58 @@ function renderResult(res, anchor, onProceed) {
     buttons.appendChild(dismiss);
     p.appendChild(buttons);
     setTimeout(() => {
-      if (panel === p) { hidePanel(); onProceed(); }
+      if (panel === p && p.dataset.phcxEnhancing !== "true") {
+        hidePanel(); onProceed();
+      }
     }, 2600);
   }
+  p.classList.add("phcx-show");
+}
+
+function renderEnhancement(anchor, result) {
+  const p = ensurePanel(anchor);
+  p.dataset.phcxEnhancing = "false";
+  p.innerHTML = "";
+  const head = document.createElement("div");
+  head.className = "phcx-head";
+  const title = document.createElement("span");
+  title.className = "phcx-logo";
+  title.textContent = "PHC-X / rewrite";
+  head.appendChild(title);
+  p.appendChild(head);
+
+  const summary = document.createElement("div");
+  summary.className = "phcx-reason";
+  const before = Number(result.original_risk || 0).toFixed(2);
+  const after = Number(result.estimated_risk || 0).toFixed(2);
+  summary.textContent = result.risk_reduced
+    ? `Estimated risk: ${before} → ${after}. Review the rewrite before sending.`
+    : `No lower-risk wording was found (estimate ${before} → ${after}). This rewrite adds grounding instructions; it cannot create missing evidence.`;
+  if (result.enhancement_method) {
+    summary.textContent += ` Method: ${result.enhancement_method}.`;
+  }
+  p.appendChild(summary);
+
+  const preview = document.createElement("div");
+  preview.className = "phcx-rewrite";
+  preview.textContent = result.enhanced_prompt || "No rewrite returned.";
+  p.appendChild(preview);
+
+  const buttons = document.createElement("div");
+  buttons.className = "phcx-buttons";
+  const useDraft = document.createElement("button");
+  useDraft.className = "phcx-primary";
+  useDraft.textContent = "Use draft";
+  useDraft.onclick = () => {
+    setComposerText(anchor, result.enhanced_prompt || "");
+    hidePanel();
+  };
+  buttons.appendChild(useDraft);
+  const cancel = document.createElement("button");
+  cancel.textContent = "Keep original";
+  cancel.onclick = () => hidePanel();
+  buttons.appendChild(cancel);
+  p.appendChild(buttons);
   p.classList.add("phcx-show");
 }
 

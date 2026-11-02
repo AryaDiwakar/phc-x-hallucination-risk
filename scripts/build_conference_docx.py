@@ -377,13 +377,10 @@ def build() -> Path:
 
 
 def main() -> int:
-    if not TEMPLATE.exists():
-        raise FileNotFoundError(f"conference template not found: {TEMPLATE}")
-    out = build()
-    print(f"wrote {out}")
-    print("A4, two-column body, Times New Roman, black text")
-    print("TODO before submission: replace the author affiliation/contact placeholder")
-    return 0
+    # Keep the historical command stable while using the template-faithful
+    # implementation for current builds.
+    from fill_conference_template import main as fill_template
+    return fill_template()
 
 
 if __name__ == "__main__":

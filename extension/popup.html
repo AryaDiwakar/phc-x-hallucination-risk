@@ -21,7 +21,7 @@
 </head>
 <body>
   <div class="head"><div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>PHC<span>/</span>X</strong></div><div class="service"><span class="service-dot"></span>local guard</div></div>
-  <div class="intro"><div class="eyebrow">pre-generation safety layer</div><h1>Keep the next answer grounded.</h1><p>Configure the local guard that checks chat prompts before they reach a model.</p></div>
+  <div class="intro"><div class="eyebrow">experimental risk advisor</div><h1>Keep the next answer grounded.</h1><p>PHC-X checks chat prompts locally. Risk estimates are experimental; pausing sends is off by default so a score alone won't stop your chat.</p></div>
   <section class="settings-card">
     <label class="section-label" for="api-base">local API endpoint</label>
     <input type="text" id="api-base" spellcheck="false" />
@@ -33,7 +33,7 @@
   <div id="status" class="status-card">checking local service...</div>
   <div id="model" class="model"></div>
   <div id="last" class="last"></div>
-  <div class="footer"><a href="http://127.0.0.1:8000/dashboard/" target="_blank">PHC/X dashboard</a><span>v0.1.0</span></div>
+  <div class="footer"><a href="http://127.0.0.1:8000/dashboard/" target="_blank">PHC/X dashboard</a><span>v0.2.0</span></div>
   <script src="popup.js"></script>
 </body>
 </html>

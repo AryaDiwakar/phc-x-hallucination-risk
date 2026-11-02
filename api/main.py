@@ -4,7 +4,7 @@ Exposes the provenance-aware pre-generation risk pipeline as a local,
 offline-first HTTP API used by the dashboard and the browser extension.
 
 Run:  phc serve            (or: uvicorn api.main:app --port 8000)
-Env:  PHCX_MODEL=/path/to/checkpoints/<exp>/model   (optional; heuristic fallback)
+Env:  PHCX_MODEL=auto | heuristic | /path/to/checkpoints/<exp>/model
       PHCX_POLICY=configs/policy.yaml
       PHCX_LOG=data/decision_log.jsonl
 """
@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -23,10 +24,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from phcx.intervention import RiskPolicy
+from phcx.models import OllamaAdapter
 from phcx.pipeline import PHCPipeline
 from phcx.risk import RiskModel
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 LOG_PATH = Path(os.environ.get("PHCX_LOG", "data/decision_log.jsonl"))
 
 
@@ -49,6 +51,10 @@ class AnalyzeRequest(BaseModel):
     conversation_id: str = "conv"
     whitebox_signals: Optional[Dict[str, float]] = None
     prefer_clarify: bool = False
+
+
+class EnhanceRequest(AnalyzeRequest):
+    """Request for a local, evidence-aware prompt rewrite suggestion."""
 
 
 class BatchRequest(BaseModel):
@@ -84,12 +90,79 @@ class State:
 
 
 STATE = State()
+_ENHANCER_CHECKED = False
+_ENHANCER: Optional[OllamaAdapter] = None
+
+
+def _local_enhancer() -> Optional[OllamaAdapter]:
+    """Cache an optional local Ollama rewrite model; never call a hosted API."""
+    global _ENHANCER_CHECKED, _ENHANCER
+    if _ENHANCER_CHECKED:
+        return _ENHANCER
+    _ENHANCER_CHECKED = True
+    # Local LLM wording is opt-in: the small available model occasionally
+    # emits irrelevant instructions. Deterministic, source-aware rewrites are
+    # the dependable default.
+    model = os.environ.get("PHCX_ENHANCER_MODEL", "off").strip()
+    if not model or model.lower() in {"off", "none", "disabled"}:
+        return None
+    candidate = OllamaAdapter(model=model, timeout=45.0)
+    try:
+        if candidate.available():
+            _ENHANCER = candidate
+    except Exception:
+        _ENHANCER = None
+    return _ENHANCER
+
+
+def _validated_local_instruction(diagnosis: Dict[str, Any]) -> Optional[str]:
+    """Ask local Ollama for a short response constraint, never a factual rewrite."""
+    enhancer = _local_enhancer()
+    if enhancer is None:
+        return None
+    issue = (
+        "directly answerable from user-provided context" if diagnosis.get("direct_user_context_support", {}).get("supported")
+        else "evidence appears missing" if diagnosis.get("risk_reasons")
+        else "general factual request"
+    )
+    instruction = (
+        "Write one short imperative instruction (maximum 25 words) to help an assistant "
+        "answer a factual request safely. Do not answer the request. Do not include any "
+        "specific facts, entities, dates, numbers, or a rewritten question. Case: "
+        f"{issue}. Return only JSON: {{\"instruction\": \"...\"}}."
+    )
+    try:
+        raw = enhancer.generate(instruction, max_tokens=80)
+        match = re.search(r"\{.*\}", raw, re.S)
+        if not match:
+            return None
+        text = json.loads(match.group(0)).get("instruction")
+        if not isinstance(text, str) or not text.strip() or len(text) > 300:
+            return None
+        if re.search(r"\d|\b[A-Z][a-z]+\b", text[1:]):
+            return None
+        if not set(text.lower().split()) & {
+            "evidence", "context", "source", "clarification", "uncertain", "guess",
+            "support", "supported", "verifiable", "speculation", "assumptions",
+        }:
+            return None
+        return text.strip()
+    except Exception:
+        # A rewrite failure must not affect analysis or prevent normal sending.
+        return None
 
 
 def _discover_model() -> Optional[str]:
-    env = os.environ.get("PHCX_MODEL")
+    # Use a small heuristic/RF ensemble by default. `PHCX_MODEL=heuristic`
+    # selects the transparent baseline; `auto` opts into RF-only; an explicit
+    # model path selects one checkpoint.
+    env = os.environ.get("PHCX_MODEL", "ensemble")
+    if env.lower() in {"heuristic", "none", "off"}:
+        return None
     if env and Path(env).with_suffix(".json").exists():
         return env
+    if env.lower() not in {"auto", "discover", "ensemble"}:
+        return None
     root = Path("checkpoints")
     if root.exists():
         preferred = ["phcx_train_baseline_seed42", "phcx_train_baseline",
@@ -106,15 +179,22 @@ def _discover_model() -> Optional[str]:
 def build_pipeline() -> None:
     model_path = _discover_model()
     model = RiskModel.load(model_path) if model_path else None
+    model_blend = 0.15 if os.environ.get("PHCX_MODEL", "ensemble").lower() == "ensemble" else 0.0
     policy_path = os.environ.get("PHCX_POLICY", "configs/policy.yaml")
     policy = (RiskPolicy.from_yaml(policy_path)
               if Path(policy_path).exists() else RiskPolicy())
     groups = None if model else ["prompt", "history", "provenance",
                                  "consistency", "evidence"]
-    STATE.pipeline = PHCPipeline(model=model, policy=policy, groups=groups)
+    STATE.pipeline = PHCPipeline(
+        model=model, policy=policy, groups=groups, model_blend=model_blend
+    )
     STATE.policy = policy
-    STATE.model_name = (f"rf:{Path(model_path).parent.name}" if model
-                        else "heuristic")
+    STATE.model_name = (
+        f"heuristic+{model.name}({model_blend:.2f}):{Path(model_path).parent.name}"
+        if model and model_blend
+        else f"{model.name}:{Path(model_path).parent.name}" if model
+        else "heuristic"
+    )
     STATE.model_path = model_path
 
 
@@ -224,6 +304,136 @@ def analyze(req: AnalyzeRequest) -> Dict[str, Any]:
         "n_evidence": len(req.evidence),
     })
     return payload
+
+
+@app.post("/v1/enhance")
+def enhance_prompt(req: EnhanceRequest) -> Dict[str, Any]:
+    """Build a grounded rewrite; optionally use a local Ollama model as editor."""
+    if STATE.pipeline is None:
+        raise HTTPException(503, "pipeline not initialised")
+    history = [turn.model_dump() for turn in req.conversation_history]
+    common = dict(
+        conversation_history=history,
+        evidence=req.evidence,
+        conversation_id=req.conversation_id,
+        use_retriever=not req.evidence,
+        prefer_clarify=req.prefer_clarify,
+    )
+    original = STATE.pipeline.analyze(req.prompt, **common)
+    source = original.context_support.get("source_excerpt")
+    arithmetic = STATE.pipeline._is_self_contained_arithmetic(req.prompt)
+    conflicts = []
+    for pair in original.contradictions[:3]:
+        left, right = pair.get("a", {}).get("text"), pair.get("b", {}).get("text")
+        for statement in (left, right):
+            if statement and statement not in conflicts:
+                conflicts.append(statement)
+    context_conflict = original.context_support.get("context_conflict")
+    if context_conflict:
+        turn_index = int(context_conflict.get("turn_id", 0)) - 1
+        prior_text = history[turn_index].get("content", "") if 0 <= turn_index < len(history) else ""
+        for statement in (
+            f"Earlier user note: {prior_text}" if prior_text else "",
+            f"New user note: {req.prompt}",
+        ):
+            if statement and statement not in conflicts:
+                conflicts.append(statement)
+    ambiguity_refs = original.ambiguities[:3]
+    diagnosis = {
+        "direct_user_context_support": original.context_support,
+        "conflicting_statements": conflicts,
+        "ambiguous_references": ambiguity_refs,
+        "risk_reasons": original.engine_reasons,
+    }
+    if arithmetic:
+        deterministic = (
+            f"Question: {req.prompt}\n\n"
+            "This is a self-contained arithmetic calculation. Compute it directly, "
+            "check the arithmetic, and give the concise result. Do not add unrelated facts."
+        )
+        method = "verified self-contained arithmetic rewrite"
+    elif source:
+        deterministic = (
+            "The following is user-provided context, not independently verified:\n"
+            f'"{source}"\n\n'
+            f"Question: {req.prompt}\n\n"
+            "Answer only if that context supports the answer. Cite the exact detail. "
+            "If it is missing or conflicting, say so and ask one focused question. "
+            "Do not add or infer facts. Format as Answer / Supporting context / Limits."
+        )
+        method = "source-attributed deterministic rewrite"
+    elif conflicts:
+        quoted = "\n".join(f'- "{text}"' for text in conflicts)
+        deterministic = (
+            f"Question: {req.prompt}\n\n"
+            "The conversation contains conflicting statements:\n"
+            f"{quoted}\n"
+            "Do not choose one as true. Ask which statement or source to use, then "
+            "answer only from the clarification and available evidence. Do not invent "
+            "a resolution or a value."
+        )
+        method = "conflict-aware deterministic rewrite"
+    elif ambiguity_refs:
+        refs = []
+        for ref in ambiguity_refs:
+            name = ref.get("reference", "")
+            candidates = ref.get("candidates", [])
+            descriptions = [c.get("text") or c.get("entity") for c in candidates]
+            refs.append(f"{name}: " + " | ".join(str(d) for d in descriptions if d))
+        deterministic = (
+            f"Question: {req.prompt}\n\n"
+            "This request may refer to more than one item in the conversation: "
+            + "; ".join(refs)
+            + ". Ask which item is meant before giving a factual answer; do not guess."
+        )
+        method = "ambiguity-aware deterministic rewrite"
+    else:
+        deterministic = (
+            f"Question: {req.prompt}\n\n"
+            "Use only information explicitly present in the conversation or supplied "
+            "evidence. Cite the specific support. If the answer, source, or referent is "
+            "missing or conflicting, state what is unclear and ask one focused "
+            "clarification instead of guessing. Format as Answer / Supporting context / Limits."
+        )
+        method = "evidence-constrained deterministic rewrite"
+
+    candidates = [(deterministic, method)]
+    # Do not delegate ambiguous or contradictory cases to a small editor model:
+    # its best-looking paraphrase could silently choose one interpretation.
+    local_instruction = None
+    if not conflicts and not ambiguity_refs and not arithmetic:
+        local_instruction = _validated_local_instruction(diagnosis)
+    enhancer = _local_enhancer() if local_instruction else None
+    if local_instruction and enhancer:
+        candidates.append((
+            deterministic + "\n\nAdditional local response instruction: " + local_instruction,
+            f"{method} + local {enhancer.model} instruction",
+        ))
+
+    scored = []
+    for candidate, candidate_method in candidates:
+        result = STATE.pipeline.analyze(candidate, **common)
+        scored.append((result.risk_score, candidate, result, candidate_method))
+    after_risk, rewritten, after, selected_method = min(
+        scored,
+        key=lambda item: (item[0], 0 if " + local " in item[3] else 1),
+    )
+    return {
+        "enhanced_prompt": rewritten,
+        "original_risk": round(original.risk_score, 4),
+        "estimated_risk": round(after_risk, 4),
+        "risk_reduced": after_risk < original.risk_score,
+        "original_action": original.recommended_action,
+        "estimated_action": after.recommended_action,
+        "context_support": original.context_support,
+        "enhancement_method": selected_method,
+        "local_rewrite_available": bool(enhancer),
+        "note": (
+            "Review the draft before sending. The original request is preserved verbatim; "
+            "local-model instructions are checked for added facts/numbers but can still be wrong. "
+            "A lower PHC-X estimate does not prove the answer is correct."
+        ),
+    }
 
 
 @app.post("/v1/batch")

@@ -15,9 +15,11 @@ cd paper
 tectonic -X compile conference.tex
 ```
 
-Outputs: `paper/conference_submission.docx` (the filled Word template) and
-`paper/conference.pdf` (its IEEEtran LaTeX twin). They are drafts, not
-submission-ready yet.
+Outputs: `paper/conference_submission.docx` (filled from the supplied Word
+template) and `paper/conference.pdf` (the IEEEtran LaTeX rendering). The Word
+draft retains the template's title and three-author layout, A4 page geometry,
+named paragraph styles, and two-column body. Results tables are sized to one
+column. These are author-review drafts, not submission-ready yet.
 
 ## Template requirements handled
 
@@ -27,16 +29,15 @@ submission-ready yet.
 - keywords follow the abstract
 - numeric IEEE-style citations (author-year labels removed from bibliography
   entries in this version)
-- tables are regenerated at conference width; wide tables use a two-column
-  float and are scaled to the text width
+- tables have captions above them and are constrained to one column; no
+  table spans the full page
 - figures use captions below; tables use captions above
 
 ## Author action required before submission
 
-The draft intentionally leaves `Affiliation and contact details to be
-completed`. The repository does not identify the authors' official
-departments, institution name, city, or submission email/ORCID. Replace that
-placeholder using the actual author information; do not submit it as-is.
+The author blocks use the supplied register numbers and the affiliation
+`School of Computer Science and Engineering, VIT Vellore`. Author email addresses or ORCIDs were not supplied; add
+them if the target conference requires author contact details.
 
 Also verify the target conference's specific page limit, copyright notice,
 required PDF eXpress check, and whether it accepts LaTeX output. The provided

@@ -183,6 +183,12 @@ class ConversationMemory:
         ptoks = set(content_tokens(prompt))
         best = 0.0
         for c in self.unverified_model_claims:
+            # A model paraphrase of an earlier user-provided claim is still
+            # not independently verified, but reusing it is not model-memory
+            # contamination. Preserve the provenance distinction without
+            # punishing a directly grounded follow-up.
+            if self._supported_by_prior_user_claim(c):
+                continue
             s = similarity(prompt, c.text)
             ctoks = set(content_tokens(c.text))
             entity_overlap = len(ptoks & ctoks) / max(1, len(ctoks))
@@ -208,6 +214,28 @@ class ConversationMemory:
         if res.dependent_claims and res.score >= 0.5:
             res.reasons.append("MODEL_GENERATED + UNVERIFIED + PROMPT_DEPENDS")
         return res
+
+    def _supported_by_prior_user_claim(self, model_claim: Claim) -> bool:
+        model_tokens = set(content_tokens(model_claim.text))
+        if len(model_tokens) < 2:
+            return False
+        model_numbers = _significant_numbers(model_claim.text)
+        for source_turn in self.turns:
+            if source_turn.speaker != "user" or source_turn.turn_id >= model_claim.turn_id:
+                continue
+            # Compare to the complete source turn rather than its sentence-level
+            # extracted claims: sentence splitting can strip a heading/entity
+            # that the assistant includes in an otherwise faithful paraphrase.
+            source_tokens = set(content_tokens(source_turn.text))
+            shared = model_tokens & source_tokens
+            # Numeric facts must match exactly. This deliberately does not
+            # turn user assertions into independently verified evidence.
+            if model_numbers and not model_numbers.issubset(_significant_numbers(source_turn.text)):
+                continue
+            overlap = len(shared) / max(1, len(model_tokens))
+            if overlap >= 0.55 and len(shared) >= 2:
+                return True
+        return False
 
     # ------------------------------------------------------------------ graph
     def _link_new_turn(self, turn: Turn) -> None:

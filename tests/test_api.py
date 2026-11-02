@@ -21,7 +21,11 @@ def test_health_and_version(tmp_path, monkeypatch):
         assert r.status_code == 200
         body = r.json()
         assert body["status"] == "ok"
+        assert body["version"] == "0.2.0"
         assert body["model"]
+        assert not body["model"].startswith("rf:"), (
+            "the raw synthetic-trained checkpoint should not be the default scorer"
+        )
 
         r = client.get("/v1/version")
         assert r.status_code == 200
@@ -90,6 +94,72 @@ def test_batch_and_policy_and_feedback(tmp_path, monkeypatch):
         r = client.post("/v1/reset")
         assert r.status_code == 200
         assert client.get("/v1/metrics").json()["n_requests"] == 0
+
+
+def test_prompt_enhancement_is_local_grounded_and_reviewable(tmp_path, monkeypatch):
+    import api.main as api_main
+
+    monkeypatch.setattr(api_main, "_local_enhancer", lambda: None)
+    with _client(tmp_path, monkeypatch) as client:
+        response = client.post("/v1/enhance", json={
+            "prompt": "How many participants were in the Northstar pilot?",
+            "conversation_history": [
+                {"role": "user", "content": "The Northstar pilot had 120 participants."},
+                {"role": "assistant", "content": "The Northstar pilot had 120 participants."},
+            ],
+            "conversation_id": "enhance-test",
+        })
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert "Northstar pilot" in result["enhanced_prompt"]
+        assert "120 participants" in result["enhanced_prompt"]
+        assert result["context_support"]["source_role"] == "user"
+        assert "estimated_risk" in result and "risk_reduced" in result
+        assert "does not prove" in result["note"]
+
+        math_result = client.post("/v1/enhance", json={
+            "prompt": "What is 2 + 2?",
+            "conversation_id": "enhance-math-test",
+        }).json()
+        assert math_result["estimated_risk"] == 0.0
+        assert "Question: What is 2 + 2?" in math_result["enhanced_prompt"]
+        assert "arithmetic" in math_result["enhanced_prompt"]
+
+        conflict_result = client.post("/v1/enhance", json={
+            "prompt": "For this chat, the Northstar pilot notes say 180 participants.",
+            "conversation_history": [
+                {"role": "user", "content": "For this chat, the Northstar pilot notes say 120 participants."},
+                {"role": "assistant", "content": "The Northstar pilot had 120 participants."},
+            ],
+            "conversation_id": "enhance-conflict-test",
+        }).json()
+        assert "conflicting statements" in conflict_result["enhanced_prompt"]
+        assert "Do not choose one as true" in conflict_result["enhanced_prompt"]
+        assert conflict_result["context_support"]["context_conflict"]["new_values"] == ["180"]
+
+
+def test_local_enhancer_instruction_is_fact_limited(monkeypatch):
+    import api.main as api_main
+
+    class FakeEnhancer:
+        def __init__(self, content):
+            self.content = content
+
+        def generate(self, _prompt, max_tokens=80):
+            return self.content
+
+    diagnosis = {"direct_user_context_support": {"supported": True}}
+    monkeypatch.setattr(
+        api_main, "_local_enhancer",
+        lambda: FakeEnhancer('{"instruction":"Use only supplied evidence and state uncertainty."}'),
+    )
+    assert api_main._validated_local_instruction(diagnosis)
+
+    monkeypatch.setattr(
+        api_main, "_local_enhancer",
+        lambda: FakeEnhancer('{"instruction":"Use the 120 participant result."}'),
+    )
+    assert api_main._validated_local_instruction(diagnosis) is None
 
 
 def test_dashboard_static_and_results(tmp_path, monkeypatch):

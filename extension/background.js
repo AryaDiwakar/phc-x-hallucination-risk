@@ -6,7 +6,7 @@
 const DEFAULTS = {
   apiBase: "http://127.0.0.1:8000",
   enabled: true,
-  blockOnCritical: true,
+  blockOnCritical: false,
   showBadge: true,
 };
 
@@ -17,6 +17,16 @@ async function settings() {
 
 async function analyze(payload, cfg) {
   const res = await fetch(cfg.apiBase.replace(/\/+$/, "") + "/v1/analyze", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`API ${res.status}`);
+  return res.json();
+}
+
+async function enhance(payload, cfg) {
+  const res = await fetch(cfg.apiBase.replace(/\/+$/, "") + "/v1/enhance", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
@@ -53,6 +63,21 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
     })();
     return true; // async response
+  }
+  if (msg && msg.type === "phc-enhance") {
+    (async () => {
+      try {
+        const cfg = await settings();
+        if (!cfg.enabled) {
+          sendResponse({ ok: false, error: "PHC-X is disabled" });
+          return;
+        }
+        sendResponse({ ok: true, result: await enhance(msg.payload, cfg) });
+      } catch (err) {
+        sendResponse({ ok: false, error: String(err && err.message || err) });
+      }
+    })();
+    return true;
   }
   if (msg && msg.type === "phc-health") {
     (async () => {

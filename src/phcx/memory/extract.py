@@ -20,11 +20,21 @@ _FACTUAL_MARKERS = re.compile(
     re.I,
 )
 _NUMBER_RE = re.compile(r"\b\d[\d,\.]*%?\b")
+_STRUCTURED_FACT_RE = re.compile(r"^\s*(?:[-*]\s*)?([A-Za-z][\w -]{1,40}):\s*(\S.*)$")
+_META_REPLY_RE = re.compile(
+    r"^\s*(?:understood|got it|noted|okay|ok)\b|"
+    r"^\s*(?:i|we)\s+(?:(?:will|shall|can|cannot|can't|won't|'ll|’ll)\s+)?"
+    r"(?:use|treat|distinguish|keep|avoid|remember|help|answer|cite)\b",
+    re.I,
+)
 
 
 def is_factual_candidate(sentence: str) -> bool:
     s = sentence.strip()
-    if not s or len(tokenize(s)) < 3:
+    # Section labels such as "Northstar details are:" are not claims.  Treating
+    # them as model facts causes any later reference to the topic to look like
+    # contamination even when the actual value came from the user.
+    if not s or s.endswith(":") or len(tokenize(s)) < 3 or _META_REPLY_RE.search(s):
         return False
     if _QUESTION_RE.search(s):
         return False
@@ -39,9 +49,27 @@ def is_factual_candidate(sentence: str) -> bool:
 def extract_claims(turn: Turn, max_claims: int = 8) -> List[Claim]:
     """Extract candidate factual claims from a turn."""
     claims: List[Claim] = []
+    structured_lines = set()
+    # Chat UIs and assistants often render factual answers as label/value
+    # lines ("Participants: 120"). Keep the label attached to the value so
+    # provenance matching doesn't collapse into a context-free numeric claim.
+    for line in turn.text.splitlines():
+        match = _STRUCTURED_FACT_RE.match(line)
+        if not match or len(claims) >= max_claims:
+            continue
+        structured_lines.add(line.strip())
+        label, value = match.groups()
+        claims.append(Claim.create(
+            text=f"{label.strip()}: {value.strip()}",
+            turn_id=turn.turn_id,
+            speaker=turn.speaker,
+            timestamp=turn.timestamp,
+        ))
     for sent in sent_split(turn.text):
         if len(claims) >= max_claims:
             break
+        if sent.strip() in structured_lines:
+            continue
         if not is_factual_candidate(sent):
             continue
         claims.append(
@@ -54,7 +82,11 @@ def extract_claims(turn: Turn, max_claims: int = 8) -> List[Claim]:
         )
     # Always keep at least one claim per non-trivial assistant turn so that
     # provenance tracking never loses model statements.
-    if not claims and turn.speaker == "assistant" and len(content_tokens(turn.text)) >= 4:
+    if (
+        not claims and turn.speaker == "assistant"
+        and len(content_tokens(turn.text)) >= 4
+        and not _META_REPLY_RE.search(turn.text)
+    ):
         claims.append(
             Claim.create(
                 text=turn.text.strip(),

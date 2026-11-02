@@ -55,6 +55,8 @@ class RiskModel:
         from sklearn.ensemble import RandomForestClassifier
         from sklearn.linear_model import LogisticRegression
         from sklearn.neural_network import MLPClassifier
+        from sklearn.pipeline import make_pipeline
+        from sklearn.preprocessing import StandardScaler
 
         h = dict(self.hyper)
         if self.name == "lr":
@@ -99,14 +101,20 @@ class RiskModel:
                 verbose=-1,
             )
         elif self.name == "mlp":
-            self._model = MLPClassifier(
-                hidden_layer_sizes=tuple(h.get("hidden_layer_sizes", (64, 32))),
-                activation="relu",
-                alpha=float(h.get("alpha", 1e-3)),
-                learning_rate_init=float(h.get("lr", 1e-3)),
-                max_iter=int(h.get("max_iter", 400)),
-                early_stopping=True,
-                random_state=self.seed,
+            # The feature vector mixes counts, rates, and lexical scores.
+            # Standardize before the MLP so high-magnitude length/count
+            # features do not dominate gradient updates.
+            self._model = make_pipeline(
+                StandardScaler(),
+                MLPClassifier(
+                    hidden_layer_sizes=tuple(h.get("hidden_layer_sizes", (64, 32))),
+                    activation="relu",
+                    alpha=float(h.get("alpha", 1e-3)),
+                    learning_rate_init=float(h.get("lr", 1e-3)),
+                    max_iter=int(h.get("max_iter", 400)),
+                    early_stopping=True,
+                    random_state=self.seed,
+                ),
             )
         elif self.name == "neural":
             self._model = _NeuralRiskPredictor(seed=self.seed, **h)
@@ -335,17 +343,30 @@ class _NeuralRiskPredictor:
         ensure_dir(path.parent)
         assert self.net is not None
         torch.save(
-            {"state_dict": self.net.state_dict(), "params": self.params, "mean": self.mean,
-             "std": self.std, "temperature": self.temperature, "in_dim": len(self.mean)},
+            {"state_dict": self.net.state_dict(), "params": self.params,
+             "mean": np.asarray(self.mean).tolist(), "std": np.asarray(self.std).tolist(),
+             "temperature": self.temperature, "in_dim": len(self.mean)},
             path,
         )
 
     def load(self, path: str | Path) -> "_NeuralRiskPredictor":
         import torch
 
-        blob = torch.load(path, map_location="cpu")
+        # New checkpoints store numeric statistics as Python lists and load
+        # with weights_only=True. Allowlist only NumPy dtype reconstruction for
+        # older project checkpoints that stored mean/std as ndarrays.
+        safe = [np.ndarray, np.dtype]
+        try:
+            safe.append(np.core.multiarray._reconstruct)
+            if hasattr(np, "dtypes") and hasattr(np.dtypes, "Float64DType"):
+                safe.append(np.dtypes.Float64DType)
+        except AttributeError:
+            pass
+        with torch.serialization.safe_globals(safe):
+            blob = torch.load(path, map_location="cpu", weights_only=True)
         self.params = blob["params"]
-        self.mean, self.std = blob["mean"], blob["std"]
+        self.mean = np.asarray(blob["mean"], dtype=float)
+        self.std = np.asarray(blob["std"], dtype=float)
         self.temperature = float(blob.get("temperature", 1.0))
         self.net = self._Net(int(blob["in_dim"]), self.params["hidden"], self.params["layers"],
                              self.params["dropout"])

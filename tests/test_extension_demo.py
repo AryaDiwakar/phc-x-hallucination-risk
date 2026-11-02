@@ -70,3 +70,16 @@ def test_extension_mentions_every_action_the_policy_can_emit(content_js):
     """The panel must understand every action the policy can return."""
     for action in ("CLARIFY", "CLARIFY_OR_ABSTAIN", "ABSTAIN"):
         assert action in content_js, f"{action} is not handled by the panel"
+
+
+def test_extension_collects_all_loaded_history_without_per_turn_truncation(content_js):
+    """The ChatGPT integration must pass the full loaded transcript to PHC-X."""
+    assert "function collectHistory()" in content_js
+    assert "nodes.slice(-limit)" not in content_js
+    assert "text.slice(0, 1200)" not in content_js
+
+
+def test_extension_exposes_user_controlled_prompt_enhancement(content_js):
+    assert 'improve.textContent = "Improve prompt"' in content_js
+    assert 'type: "phc-enhance"' in content_js
+    assert 'useDraft.textContent = "Use draft"' in content_js

@@ -19,6 +19,10 @@ def test_manifest_valid_mv3():
     assert manifest["content_scripts"][0]["js"] == ["content.js"]
     assert "storage" in manifest["permissions"]
     assert any(h.startswith("http://127.0.0.1") for h in manifest["host_permissions"])
+    matches = manifest["content_scripts"][0]["matches"]
+    assert "https://chatgpt.com/*" in matches
+    assert "https://chat.openai.com/*" in matches
+    assert "<all_urls>" not in matches
 
 
 def test_referenced_files_exist():

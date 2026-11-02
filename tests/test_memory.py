@@ -41,6 +41,43 @@ def test_contamination_scores(contaminated_history, clean_history):
     assert clean_mem.contamination(clean_prompt).score < 0.2
 
 
+def test_assistant_paraphrase_of_user_fact_is_not_contamination():
+    history = [
+        {"role": "user", "content": "The Northstar pilot had 120 participants."},
+        {"role": "assistant", "content": "The Northstar pilot had 120 participants."},
+    ]
+    mem = ConversationMemory.from_history(history)
+    result = mem.contamination("How many participants were in the Northstar pilot?")
+    assert result.score == 0.0
+    assert not result.dependent_claims
+
+
+def test_assistant_addition_not_supported_by_user_stays_contamination():
+    history = [
+        {"role": "user", "content": "The Northstar pilot had 120 participants."},
+        {"role": "assistant", "content": "The Northstar pilot had 180 participants."},
+    ]
+    mem = ConversationMemory.from_history(history)
+    result = mem.contamination("How many participants were in the Northstar pilot?")
+    assert result.score > 0.0
+
+
+def test_natural_assistant_paraphrase_matches_full_user_source_turn():
+    history = [
+        {"role": "user", "content": (
+            "For this chat, the Northstar pilot notes say: 120 participants, "
+            "conducted in May 2025. No outcome metrics are included."
+        )},
+        {"role": "assistant", "content": (
+            "The notes say the Northstar pilot had 120 participants and ran in May 2025."
+        )},
+    ]
+    mem = ConversationMemory.from_history(history)
+    result = mem.contamination("How many participants were in the Northstar pilot?")
+    assert result.score == 0.0
+    assert not result.dependent_claims
+
+
 def test_relevant_claims(clean_history):
     mem = ConversationMemory.from_history(clean_history)
     rel = mem.relevant_claims("Which dataset do we use for evaluation?", top_k=3)

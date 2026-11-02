@@ -130,6 +130,41 @@ phc --help
 Requires Python ≥ 3.10. Optional: Ollama (`llama3.2:3b`) for local LLM
 fallback, Node ≥ 18 for `node --check` syntax gates in tests.
 
+### Use it with ChatGPT
+
+PHC-X includes a Chrome/Chromium extension for `chatgpt.com` (also supports
+`chat.openai.com`). Start the local service with `phc serve`, open
+`chrome://extensions`, enable **Developer mode**, and select **Load unpacked**
+to install this repository's `extension/` directory. Visit ChatGPT and confirm
+the service is online in the PHC-X toolbar popup. Before each send, the
+extension checks the full text transcript currently loaded in the page using
+the local API; it does not train or replace ChatGPT, and it does not send chat
+data to a hosted PHC-X service. See `docs/product_plugin.md` for details and
+limitations.
+
+Blocking is off by default because the trained risk model has not yet shown
+reliable transfer to real conversations. You can opt into pausing critical
+actions in the popup; treat scores as advisory either way.
+
+High-risk checks also offer **Improve prompt**: a local, evidence-aware draft
+that attributes any quoted context to its source and asks ChatGPT to disclose
+missing/conflicting information instead of guessing. It never auto-sends. Risk
+estimates are still experimental; a rewrite cannot manufacture evidence.
+
+### Live-context stress evaluation
+
+Generate 10,000 reproducible human-style (but synthetic and not human-labeled)
+cases and score them with the locally discovered model:
+
+```bash
+python3 scripts/evaluate_live_context_10k.py
+```
+
+The generated cases go to `data/stress/live_context_10k.jsonl`; the full
+per-case report goes to `reports/live_context_10k.json`. Interpret these as a
+constructed stress test, not real-world accuracy or human validation. See
+`docs/live_context_stress_10k.md` for the measured results and caveats.
+
 ## Quickstart
 
 ```bash
@@ -168,7 +203,7 @@ on val only), `stats` (paired significance between two checkpoints).
 ## Tests
 
 ```bash
-python3 -m pytest tests -q        # 157 tests, ~65 s
+python3 -m pytest tests -q        # 174 tests, ~65 s
 ```
 
 Covers utils, memory, the five consistency engines, retrieval/features, risk
@@ -310,8 +345,10 @@ Serving surfaces:
 | Dashboard | `dashboard/` served at `/dashboard/` | analyzer, policy sliders, live metrics + gates, results explorer |
 | Extension | `extension/` (MV3) | intercepts Enter in chat UIs, non-blocking panel, blocking gate for CLARIFY/ABSTAIN; demo at `extension/demo/chat.html` against `phc serve` |
 
-Model checkpoints auto-discover `checkpoints/phcx_train_baseline_seed42/model` (override
-with `PHCX_MODEL`); results endpoints read `results/raw/*.json`.
+The API defaults to an experimental 85/15 heuristic/RF blend. Use
+`PHCX_MODEL=heuristic phc serve` for the transparent baseline or
+`PHCX_MODEL=auto phc serve` for RF-only scoring; you can also set `PHCX_MODEL`
+to an explicit checkpoint path. Results endpoints read `results/raw/*.json`.
 
 ## Data
 

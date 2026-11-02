@@ -12,7 +12,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..memory import Claim, ConversationMemory, EdgeType, VerificationStatus
-from ..utils.text import content_tokens, negation_present, similarity, tokenize
+from ..utils.text import content_tokens, negation_present, sent_split, similarity, tokenize
+from ..memory.extract import is_factual_candidate
 
 _NUMBER_RE = re.compile(
     r"(?<![\w.])(\d[\d,]*\.?\d*)\s*(%|percent|k|m|b|million|billion|thousand)?", re.I
@@ -285,21 +286,26 @@ class ContradictionEngine:
         # presupposition engine instead).  Only assertive prompts are checked.
         prompt_best = 0.0
         if prompt and not prompt.strip().endswith("?"):
-            for c, _sim in memory.relevant_claims(prompt, top_k=relevant_top_k, min_sim=0.15):
-                sc, why = pair_contradiction(prompt, c.text)
-                if sc > prompt_best:
-                    prompt_best = sc
-                if sc >= self.min_pair_score:
-                    res.pairs.append(
-                        ContradictionPair(
-                            {"claim_id": "PROMPT", "turn_id": -1, "speaker": "user", "text": prompt,
-                             "provenance": "PROMPT", "verification": "N/A"},
-                            _claim_brief(c),
-                            sc,
-                            f"prompt-vs-history: {why}",
+            # Compare propositions one at a time. Comparing a multi-sentence
+            # context-setting message as one claim made unrelated negation in
+            # one sentence look like a contradiction of every other sentence.
+            prompt_claims = [s for s in sent_split(prompt) if is_factual_candidate(s)] or [prompt]
+            for prompt_claim in prompt_claims:
+                for c, _sim in memory.relevant_claims(prompt_claim, top_k=relevant_top_k, min_sim=0.15):
+                    sc, why = pair_contradiction(prompt_claim, c.text)
+                    if sc > prompt_best:
+                        prompt_best = sc
+                    if sc >= self.min_pair_score:
+                        res.pairs.append(
+                            ContradictionPair(
+                                {"claim_id": "PROMPT", "turn_id": -1, "speaker": "user", "text": prompt_claim,
+                                 "provenance": "PROMPT", "verification": "N/A"},
+                                _claim_brief(c),
+                                sc,
+                                f"prompt-vs-history: {why}",
+                            )
                         )
-                    )
-                    res.reasons.append(f"prompt conflicts with turn {c.turn_id}: {why}")
+                        res.reasons.append(f"prompt conflicts with turn {c.turn_id}: {why}")
         res.prompt_conflict_score = prompt_best
         res.score = float(min(1.0, max(hist_best, prompt_best)))
         res.pairs.extend(pairs[:8])

@@ -78,3 +78,16 @@ def test_ambiguity_pronoun_two_antecedents():
     res = AmbiguityEngine().analyze("Update that model's configuration and report it.", mem)
     assert res.score > 0.0
     assert res.references or res.should_clarify
+
+
+def test_repeated_explicit_entity_is_not_referential_ambiguity():
+    history = [
+        {"role": "user", "content": "The Northstar pilot had 120 participants."},
+        {"role": "assistant", "content": "The Northstar pilot had 120 participants."},
+    ]
+    mem = ConversationMemory.from_history(history)
+    res = AmbiguityEngine().analyze(
+        "How many participants were in the Northstar pilot?", mem
+    )
+    assert res.score == 0.0
+    assert not res.should_clarify

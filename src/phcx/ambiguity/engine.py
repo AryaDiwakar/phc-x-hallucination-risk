@@ -161,6 +161,15 @@ class AmbiguityEngine:
             # a specific reference can only be ambiguous between statements
             # that actually mention it
             cands = [c for c in cands if _mentions_reference(ref, c["text"])]
+            # Repeated mentions of the same explicit entity in the user and
+            # assistant turns are supporting context, not competing
+            # antecedents. Only treat a noun phrase as ambiguous when its
+            # identifying words do not pin the same entity in each candidate.
+            ref_words = {w for w in content_tokens(ref) if len(w) > 2}
+            if len(ref_words) >= 2 and cands and all(
+                ref_words.issubset(set(content_tokens(c["text"]))) for c in cands
+            ):
+                continue
             if len(cands) >= self.min_candidates:
                 s1, s2 = cands[0]["relevance"], cands[1]["relevance"]
                 margin = round(s1 - s2, 4)
